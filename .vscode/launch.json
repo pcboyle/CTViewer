@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Python Debugger: ct_viewer.py",
+            "type": "debugpy",
+            "request": "launch",
+            "windows":{
+                "program": "C:/Users/peter/Dropbox/Code/Python/medical_physics/ct_viewer/src/ct_viewer/ct_viewer.py",
+                "args": [
+                    "-gpu=0"
+                ]
+            },
+            "linux": {
+                "program": "/home/pboyle/Dropbox/Code/Python/medical_physics/ct_viewer/src/ct_viewer/ct_viewer.py",
+                "args": [
+                    "-gpu=1"
+                ]
+            },
+            "justMyCode": false,
+            "subProcess": true
+        },
+        {
+            "name": "Python Debugger: Attach using Process Id",
+            "type": "debugpy",
+            "request": "attach",
+            "processId": "${command:pickProcess}"
+        },
+        {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "guiEventLoop": "none",
+            "console": "integratedTerminal",
+            "args": [
+                "${command:pickArgs}"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ct_viewer"
+authors = [
+    { name = "Peter Boyle", email = "pboyle@mednet.ucla.edu" },
+]
+description = "CT Viewer with advanced analysis features."
+
+readme = "README.md"
+
+dynamic = ["dependencies", "version"]
+
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+classifiers = ["Programming Language :: Python :: 3.12"]
+
+[project.scripts]
+ct_viewer = "ct_viewer.ct_viewer:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+version = { attr = "ct_viewer.__version__" }
+
+[tools.setuptools_scm]

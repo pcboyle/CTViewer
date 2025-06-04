@@ -1,0 +1,2 @@
+[console_scripts]
+ct_viewer = ct_viewer.ct_viewer:main

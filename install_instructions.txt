@@ -1,0 +1,19 @@
+mamba create -n ct_viewer python=3.10
+
+mamba install colorcet h5py numpy pandas numba scipy quaternionic matplotlib openpyxl xlsxwriter
+
+# Check cuda version using nvcc --version first
+# This will only work if cudatoolkit was manually installed. 
+mamba install cupy=12.2.0 cuda-version=<VERSION>
+# VERSION is 11.8 on most machines, it's 11.7 on Zemo. 
+
+
+pip install dearpygui
+
+cd /home/pboyle/Dropbox/Code/Python/medical_physics/ct_viewer/dist
+
+pip install --no-deps --no-build-isolation ct_viewer-0.1.0-py3-none-any.whl
+
+# To build:
+# Navigate to Code\Python\medical_physics\ct_viewer
+python -m build
