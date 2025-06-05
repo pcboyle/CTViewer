@@ -1,0 +1,14 @@
+colorcet>=3.1.0
+h5py>=3.12.1
+cupy>=13.3.0
+numpy>=2.0.2
+pandas>=2.2.3
+numba>=0.60.0
+scipy>=1.15.1
+quaternionic>=1.0.14
+dearpygui>=2.0.0
+matplotlib>=3.10.0
+openpyxl
+xlsxwriter>=3.2.0
+nibabel>=5.3.2
+python-gdcm>=3.0.24.1
