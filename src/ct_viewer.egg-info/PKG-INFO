@@ -7,19 +7,20 @@ License: Proprietary
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
-Requires-Dist: colorcet>=2.0.4
-Requires-Dist: h5py>=3.9.0
-Requires-Dist: cupy>=12.0.0
-Requires-Dist: numpy>=1.26.3
-Requires-Dist: pandas>=2.1.4
-Requires-Dist: numba>=0.59.0
-Requires-Dist: scipy>=1.11.4
-Requires-Dist: quaternionic>=1.0.8
-Requires-Dist: dearpygui>=1.11.0
-Requires-Dist: matplotlib>=3.8.0
+Requires-Dist: colorcet>=3.1.0
+Requires-Dist: h5py>=3.12.1
+Requires-Dist: cupy>=13.3.0
+Requires-Dist: numpy>=2.0.2
+Requires-Dist: pandas>=2.2.3
+Requires-Dist: numba>=0.60.0
+Requires-Dist: scipy>=1.15.1
+Requires-Dist: quaternionic>=1.0.14
+Requires-Dist: dearpygui>=2.0.0
+Requires-Dist: matplotlib>=3.10.0
 Requires-Dist: openpyxl
-Requires-Dist: xlsxwriter
-Requires-Dist: nibabel
+Requires-Dist: xlsxwriter>=3.2.0
+Requires-Dist: nibabel>=5.3.2
+Requires-Dist: python-gdcm>=3.0.24.1
 
 Command line options: 
     To start program, use ct_viewer. 
