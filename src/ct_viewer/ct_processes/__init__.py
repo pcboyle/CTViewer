@@ -9,12 +9,9 @@ class CTViewer:
         from . import CTVolume
         from . import OptionsPanel
         from . import NodeEditor
-        # from . import OptionValue
-        # from . import MainView
         from . import NewMainView
         from . import AnalysisView
         from . import FileDialog
-        # from . import FileIO
         from . import InformationBox
         from . import VolumeLayer
         from . import ImageTools
@@ -23,9 +20,7 @@ class CTViewer:
         # Set this instance as the ct_viewer. 
         print('Initialized')
         G.APP = self
-        # self.FileIO = FileIO.FileIO()
 
-        # self.Volumes = []
         self.VolumeLayerGroups:VolumeLayer.VolumeLayerGroups = VolumeLayer.VolumeLayerGroups()
         self.VolumeLayerGroups.add_group(group_name = 'AllVolumes')
         self.main_view:NewMainView.MainView = NewMainView.MainView(self.VolumeLayerGroups)
@@ -115,6 +110,13 @@ class CTViewer:
                                   callback = self.options_panel.mouse_and_keyboard_navigation, 
                                   tag = 'mouse_and_keyboard_navigation_handler', 
                                   parent = self.handler_registry)
+        
+        self.menu_bar.set_classes(self, 
+                                  self.VolumeLayerGroups,
+                                  self.info_box,
+                                  self.options_panel,
+                                  self.FileDialog,
+                                  self.image_tools)
 
     def print_current_tab(self, sender, app_data):
         print('Tab clicked!')

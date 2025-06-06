@@ -1,6 +1,5 @@
 from .Globals import *
 from . import VolumeLayer
-from . import Landmarks
 
 class InformationBox(object):
     def __init__(self, volume_layer_groups: VolumeLayer.VolumeLayerGroups):
@@ -9,7 +8,6 @@ class InformationBox(object):
             cp.cuda.Device(G.DEVICE).use()
 
         self.group_text = ''
-        self.landmark_volumes = {}
         self.items = []
         self.landmark_circles = []
         self.aliases = []

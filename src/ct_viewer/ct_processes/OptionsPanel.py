@@ -23,6 +23,8 @@ class OptionsPanel:
         self.debug = debug
         self.information_box = None
         self.image_tools = None
+        self.tag_list = []
+        self.handler_list = []
 
         # dpg.mvKey: [no mods | mod shift | mod alt], key_alias. 
         self.mouse_and_keyboard_controls = {
@@ -73,20 +75,13 @@ class OptionsPanel:
                                     user_data = None, 
                                     tag = 'option_panel_mouse_wheel_handler', 
                                     parent = G.HANDLER_REG_TAG)
-        
+        self.handler_list.append(dpg.last_item())
         dpg.add_item_clicked_handler(button=dpg.mvMouseButton_Right, 
                                      show = False,
                                      callback=self.item_right_clicked, 
                                      tag = 'option_panel_mouse_click_handler',
                                      parent = G.ITEM_HANDLER_REG_TAG)
-        
-        # dpg.add_item_clicked_handler(button=dpg.mvMouseButton_Middle, 
-        #                              show = False,
-        #                              callback=self.item_right_clicked, 
-        #                              tag = 'option_panel_mouse_click_handler',
-        #                              parent = G.ITEM_HANDLER_REG_TAG)
-        
-        # dpg.add_mouse_release_handler(button = dpg.mvMouseButton_Middle)
+        self.handler_list.append(dpg.last_item())
         
         dpg.add_mouse_down_handler(button = dpg.mvMouseButton_Middle,
                                    show = False, 
@@ -96,6 +91,7 @@ class OptionsPanel:
                                    callback = lambda sender, app_data, user_data: self.image_mouse_move('option_panel_mouse_middle_handler',
                                                                                                         dpg.get_drawing_mouse_pos(),
                                                                                                         dpg.is_mouse_button_clicked(dpg.mvMouseButton_Middle)))
+        self.handler_list.append(dpg.last_item())
 
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
@@ -118,6 +114,7 @@ class OptionsPanel:
                                    min_value = G.OPTIONS_DICT[option_key]['min_value'], 
                                    max_value = G.OPTIONS_DICT[option_key]['max_value'],
                                    tag = G.OPTIONS_DICT[option_key]['slider_tag'])
+                self.tag_list.append(dpg.last_item())
             
             # Orientation Group
             with dpg.group(horizontal = True, tag = 'orientation_group_options'):
@@ -145,6 +142,7 @@ class OptionsPanel:
                                                     max_clamped = True, 
                                                     on_enter = True,
                                                     callback = self.set_increment_value)
+                                self.tag_list.append(dpg.last_item())
                                 
                             dpg.add_text(G.OPTIONS_DICT[option_key]['label'], 
                                          tag = G.OPTIONS_DICT[option_key]['label_tag'])
@@ -162,6 +160,7 @@ class OptionsPanel:
                                                 max_clamped = True,
                                                 on_enter = True,
                                                 callback = self.update_volume)
+                            self.tag_list.append(dpg.last_item())
                             self.orientation_tags.append(dpg.last_item())
                         
                         dpg.bind_item_handler_registry(G.OPTIONS_DICT[option_key]['group_tag'], 
@@ -174,12 +173,14 @@ class OptionsPanel:
                                height = b_height, 
                                user_data = False,
                                callback = self.update_frame_of_reference)
+                self.tag_list.append(dpg.last_item())
                 
                 tag = f'orientation_{G.GROUP_LAYER_RESET_BUTTON}'
                 dpg.add_button(label = 'Reset', 
                                tag = tag, 
                                height = b_height, 
                                callback = self.reset_orientation)
+                self.tag_list.append(dpg.last_item())
             
             with dpg.group(horizontal = True, tag = 'intensity_group_options'):
                 with dpg.group(tag = 'intensity_group_options_slider_group'):
@@ -204,6 +205,7 @@ class OptionsPanel:
                                                     max_clamped = True, 
                                                     on_enter = True,
                                                     callback = self.set_increment_value)
+                                self.tag_list.append(dpg.last_item())
                                 
                             dpg.add_text(G.OPTIONS_DICT[option_key]['label'], 
                                          tag = G.OPTIONS_DICT[option_key]['label_tag'])
@@ -221,6 +223,7 @@ class OptionsPanel:
                                                 max_clamped = True,
                                                 on_enter = True,
                                                 callback = self.update_volume)
+                            self.tag_list.append(dpg.last_item())
                             self.intensity_tags.append(dpg.last_item())
                                 
                         dpg.bind_item_handler_registry(G.OPTIONS_DICT[option_key]['group_tag'], G.ITEM_HANDLER_REG_TAG)
@@ -231,6 +234,7 @@ class OptionsPanel:
                                height = 42, 
                                user_data = False,
                                callback = self.update_frame_of_reference)
+                self.tag_list.append(dpg.last_item())
             
             with dpg.group(tag = 'colormap_and_colorscale'):
                 with dpg.group(horizontal = True):
@@ -240,9 +244,11 @@ class OptionsPanel:
                                   callback = self.update_volume, 
                                   default_value = 'Fire',
                                   tag = 'colormap_combo')
+                    self.tag_list.append(dpg.last_item())
                     dpg.add_checkbox(label = 'Reverse', 
                                      tag = 'reverse_colormap_checkbox', 
                                      callback = self.update_volume)
+                    self.tag_list.append(dpg.last_item())
                     dpg.set_value('colormap_combo', 'Fire')
 
                 with dpg.group(horizontal = True):
@@ -252,9 +258,11 @@ class OptionsPanel:
                                   callback = self.update_volume, 
                                   default_value = 'Linear',
                                   tag = 'colormap_scale_combo')
+                    self.tag_list.append(dpg.last_item())
                     dpg.add_checkbox(label = 'Rescale', 
                                      tag = 'rescale_colormap_checkbox', 
                                      callback = self.update_volume)
+                    self.tag_list.append(dpg.last_item())
                 
             with dpg.group(tag = 'mask_segmentation_options'):
                 with dpg.group(horizontal = True, 
@@ -265,11 +273,13 @@ class OptionsPanel:
                                   callback = self.update_volume, 
                                   default_value = 'Body', 
                                   tag = 'mask_combo')
+                    self.tag_list.append(dpg.last_item())
                     dpg.set_value('mask_combo', 'Body')
                     dpg.add_checkbox(label = 'Enable', 
                                      tag = 'enable_mask_checkbox', 
                                      default_value=False, 
                                      callback = self.update_volume)
+                    self.tag_list.append(dpg.last_item())
 
                 with dpg.group(horizontal = True, 
                                tag = 'mask_exclude_low_group'):
@@ -281,10 +291,12 @@ class OptionsPanel:
                                         step_fast = 5,
                                         default_value = -3500, 
                                         tag = 'mask_exclude_low_float')
+                    self.tag_list.append(dpg.last_item())
                     dpg.add_checkbox(label = 'Enable', 
                                      tag = 'enable_mask_low_exclude_checkbox', 
                                      default_value=False, 
                                      callback = self.update_volume)
+                    self.tag_list.append(dpg.last_item())
                 
                     with dpg.popup('mask_exclude_low_group', 
                                    min_size = [15, 15], 
@@ -300,6 +312,7 @@ class OptionsPanel:
                                             max_clamped = True, 
                                             on_enter = True,
                                             callback = self.set_increment_value)
+                        self.tag_list.append(dpg.last_item())
 
                 with dpg.group(horizontal = True, 
                                tag = 'mask_exclude_high_group'):
@@ -311,10 +324,12 @@ class OptionsPanel:
                                         step_fast = 5,
                                         default_value = 3500, 
                                         tag = 'mask_exclude_high_float')
+                    self.tag_list.append(dpg.last_item())
                     dpg.add_checkbox(label = 'Enable', 
                                      tag = 'enable_mask_high_exclude_checkbox', 
                                      default_value=False, 
                                      callback = self.update_volume)
+                    self.tag_list.append(dpg.last_item())
 
                     with dpg.popup('mask_exclude_high_group', 
                                    min_size = [15, 15], 
@@ -330,6 +345,7 @@ class OptionsPanel:
                                             max_clamped = True, 
                                             on_enter = True,
                                             callback = self.set_increment_value)
+                        self.tag_list.append(dpg.last_item())
                     
                 with dpg.group(horizontal = True, 
                                tag = 'mask_opacity_group'):
@@ -347,12 +363,14 @@ class OptionsPanel:
                                         min_clamped = True, 
                                         max_clamped = True, 
                                         tag = 'mask_opacity_slider')
+                    self.tag_list.append(dpg.last_item())
                     
                     dpg.add_color_edit(label = 'Mask Color', 
                                        tag = 'mask_color_picker', 
                                        default_value=(20, 20, 230, 255), 
                                        no_inputs = True, 
                                        callback = self.update_volume)
+                    self.tag_list.append(dpg.last_item())
             
             with dpg.group(tag = 'interpolation_options', 
                            horizontal=True):
@@ -362,6 +380,7 @@ class OptionsPanel:
                               callback = self.update_volume, 
                               default_value = G.INTERPOLATION_OPTIONS[0], 
                               tag = 'interpolation_combo_box')
+                self.tag_list.append(dpg.last_item())
             
             with dpg.group(horizontal=True):
                 dpg.add_text('Quaternion   ')
@@ -801,18 +820,20 @@ class OptionsPanel:
             
                 
     def enable_options(self):
-        for option_tag in G.OPTION_TAGS:
-            dpg.enable_item(option_tag)
+        for tag in self.tag_list:
+            dpg.enable_item(tag)
 
-        dpg.show_item('option_panel_mouse_click_handler')
+        for handler in self.handler_list:
+            dpg.show_item(handler)
 
 
     def disable_options(self):
-        for option_tag in G.OPTION_TAGS:
-            print(f'OptionsPanel Message: {option_tag} disabled' )
-            dpg.disable_item(option_tag)
+        for tag in self.tag_list:
+            print(f'OptionsPanel Message: {tag} disabled' )
+            dpg.disable_item(tag)
         
-        dpg.hide_item('option_panel_mouse_click_handler')
+        for handler in self.handler_list:
+            dpg.hide_item(handler)
 
     def _cleanup_(self):
         pass

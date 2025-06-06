@@ -1166,10 +1166,10 @@ class VolumeLayerGroup(object):
         pass
 
 
-    def remove_volume(self, volume_name, clean_up = True):
+    def remove_volume(self, 
+                      volume_name, 
+                      clean_up = True):
         print(f'VolumeLayer Message: Removing {volume_name} from Group {self.group_name}.')
-        # if volume_name == self.current_view_volume.name:
-        #     pass
         # Doing this so we can simply use this function in remove_all_volumes below.
         if volume_name in self.volume_names:
             self.get_volume_by_name(volume_name).delete_texture()
@@ -1184,13 +1184,14 @@ class VolumeLayerGroup(object):
 
         self.n_volumes -= 1
 
-    def remove_all_volumes(self):
+    def remove_all_volumes(self,
+                           clean_up = False):
         while len(self.volume_names):
             volume_name = self.volume_names[-1]
-            self.remove_volume(volume_name)
+            self.remove_volume(volume_name, clean_up = clean_up)
 
     def _cleanup_(self):
-        self.remove_all_volumes()
+        self.remove_all_volumes(clean_up = True)
         dict_keys = list(self.__dict__.keys())
         while len(dict_keys):
             attrib_key = dict_keys[-1]
@@ -1533,12 +1534,10 @@ class VolumeLayerGroups(object):
                                        sender, 
                                        app_data, 
                                        user_data):
-        # Proxy function for the item hover handler. 
-        self.set_drawing_position_info_text(user_data, 
-                                            self.get_drawing_position_info_text(*dpg.get_drawing_mouse_pos(),
-                                                                                'Mouse'))
-                                            
-        # self.update_current_volume_coord_info()
+        if self.active:
+            self.set_drawing_position_info_text(user_data, 
+                                                self.get_drawing_position_info_text(*dpg.get_drawing_mouse_pos(),
+                                                                                    'Mouse'))
 
 
     def get_drawing_pos_coords(self, 
@@ -1655,52 +1654,6 @@ class VolumeLayerGroups(object):
                       size = 14, 
                       parent = text_drawlayer)
 
-
-    def update_current_volume_coord_info(self, 
-                                         text_tag:str = None):
-        if self.current_group_and_volume[0] == None:
-            return
-        
-        if self.get_current_group().n_volumes < 1:
-            return
-        
-        if text_tag == None:
-            text_tag = self.get_current_group().text_info_tag
-        
-        # Origin vector is in mm
-        crosshair_x, crosshair_y = self.get_crosshair_drawing_pos()
-        crosshair_coords = self.get_drawing_pos_coords(crosshair_x, crosshair_y)
-
-        mouse_x, mouse_y = dpg.get_drawing_mouse_pos() 
-        mouse_coords = self.get_drawing_pos_coords(mouse_x, mouse_y)
-
-        crosshair_coords = crosshair_coords.round(3) + 0.0
-        mouse_coords = mouse_coords.round(3) + 0.0
-
-        physical_coords = self.get_physical_pos_coords(mouse_x, mouse_y).round(3)
-        physical_voxel_coords = self.get_physical_voxel_coords(mouse_x, mouse_y).round(3)
-
-        crosshair_hu = self.get_drawing_pos_texture_value(crosshair_x, crosshair_y, decimals = 2)
-        mouse_hu = self.get_drawing_pos_texture_value(mouse_x, mouse_y, decimals = 2)
-        # origin_hu, mouse_hu = self.get_current_volume().interpolator([crosshair_coords,
-        #                                                                mouse_coords]).get().round(3)
-
-        display_text =                  f'                    (X    , Y    , Z    , HU   )'
-        mouse_position_string =         f'Texture Position  : ({mouse_x:.2f}, {mouse_y:.2f})'
-        physical_coords_string =        f'Physical Position : ({physical_coords[1]:.2f}, {physical_coords[0]:.2f}, {physical_coords[2]:.2f})'
-        physical_voxel_coords_string =  f'Voxel Position    : ({physical_voxel_coords[1]:.2f}, {physical_voxel_coords[0]:.2f}, {physical_voxel_coords[2]:.2f})'
-        mouse_coords_string =           f'Mouse Position    : ({mouse_coords[1]:.2f}, {mouse_coords[0]:.2f}, {mouse_coords[2]:.2f}, {mouse_hu:.2f})'
-        crosshair_coords_string =       f'Crosshair Position: ({crosshair_coords[1]:.2f}, {crosshair_coords[0]:.2f}, {crosshair_coords[2]:.2f}, {crosshair_hu:.2f})'
-        display_text = f'{display_text}\n{mouse_position_string}\n{physical_coords_string}\n{physical_voxel_coords_string}\n{mouse_coords_string}\n{crosshair_coords_string}'
-
-        text_drawlayer = dpg.get_item_parent(text_tag)
-        if dpg.does_item_exist(text_tag):
-            dpg.delete_item(text_tag)
-        if dpg.does_alias_exist(text_tag):
-            dpg.remove_alias(text_tag)
-
-        dpg.draw_text((15, 15), display_text, tag = text_tag, size = 14, parent = text_drawlayer)
-        
 
     def update_landmark_colors(self):
         self.get_current_volume().update_landmarks(update_type = 'Colors')

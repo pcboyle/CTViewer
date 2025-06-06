@@ -5,6 +5,12 @@ class MenuBar:
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
 
+        self.volume_layer_groups = None
+        self.options_panel = None
+        self.image_tools = None
+        self.infobox_close = None
+        self.file_dialog = None
+
         with dpg.menu_bar(tag = 'MenuBar'):
             with dpg.menu(label = 'File', tag = 'MenuBarFile'):
                 dpg.add_menu_item(label = 'Open Volumes', 
@@ -38,6 +44,10 @@ class MenuBar:
                                   tag = 'MenuBarSettings_open_config_menu', 
                                   user_data = False,
                                   callback = self.open_configuration)
+                dpg.add_menu_item(label='Help',
+                                  tag = 'MenuBarSettings_open_help_dialog',
+                                  user_data = False, 
+                                  callback = self.open_help)
                 with dpg.menu(label='Debug Options', 
                               tag = 'MenuBarSettings_open_debug_menu'):
                     dpg.add_menu_item(label = 'Show Debug', 
@@ -101,24 +111,32 @@ class MenuBar:
         dpg.show_item(G.TEX_REG_TAG)
 
     def open_files(self, sender, app_data):
-        print(f'MenuBar Message: {G.VIEW = }')
-        G.APP.FileDialog.show()
+        self.file_dialog.show()
+
+    def set_classes(self, 
+                    VolumeLayerGroups,
+                    InformationBox,
+                    OptionsPanel,
+                    FileDialog,
+                    ImageTools) -> None:
+        self.volume_layer_groups = VolumeLayerGroups
+        self.info_box = InformationBox
+        self.options_panel = OptionsPanel
+        self.file_dialog = FileDialog
+        self.image_tools = ImageTools
 
     def close_all(self):
         print('MenuBar Message: Closing All Volumes')
-        print(f'MenuBar Message: {G.FILE_LOADED = }')
-        if G.FILE_LOADED:
+        print(f'MenuBar Message: {self.volume_layer_groups.active = }')
+        if self.volume_layer_groups.active:
             dpg.set_value('InfoBoxTab_layers_text', '')
             
-            # TODO Finish closing logic for new Texture methods. 
-            # G.APP.main_view.close_image() # This no longer needs to close any images. 
-            G.APP.info_box.close_image()
-            G.APP.options_panel.disable_options()
-            G.APP.image_tools.disable_options()
+            self.info_box.close_image()
+            self.options_panel.disable_options()
+            self.image_tools.disable_options()
             dpg.configure_item('save_landmarks_button', enabled = False)
 
-            G.APP.VolumeLayerGroups.remove_all_groups()
-            # G.APP.Volumes.clear()
+            self.volume_layer_groups.remove_all_groups()
 
             setattr(self, 'VOLUME_LOADED', False)
             for GLOBAL_KEY in G.GLOBAL_DEFAULTS.keys():
@@ -247,6 +265,25 @@ class MenuBar:
             dpg.add_button(label = 'Save Configuration', callback = self.save_configuration)
 
 
+    def open_help(self, sender, app_data, user_data):
+        if user_data:
+            dpg.show_item('MenuBar_Help_Window')
+            return
+
+        else: 
+            dpg.set_item_user_data(sender, True)
+        
+        with dpg.window(label='CTViewer Help', 
+                        tag = 'MenuBar_HelpWindow',
+                        pos = [500, 100],
+                        max_size=[950, 800],
+                        horizontal_scrollbar = False,
+                        autosize = True,
+                        show = True):
+            dpg.add_text(self.get_menubar_text(),
+                         wrap = 795)
+
+
     def update_config(self, sender, app_data, user_data):
         if user_data[0] == 'default_colors':
             app_data = tuple([int(round(value*255.0)) for value in app_data])
@@ -259,3 +296,66 @@ class MenuBar:
 
     def _cleanup_(self):
         pass
+
+    def get_menubar_text(self):
+
+        return """Command line options: 
+            To start program, use ct_viewer. 
+
+            Can enter debug mode with -debug
+
+            Select GPU with -gpu=<device number>
+                Default is -gpu=0
+
+        Config file:
+
+            A configuration file will now be created/loaded at $USERHOME/.config/ct_viewer/config.ini
+
+
+        Geometry:
+            All files are loaded in and interpolated to be 1 x 1 x 1 mm/pix using the pixel dimensions, slice thickness, and volume affine. They are initially centered at (0, 0, 0) in physical space in mm. 
+
+            If no affine is present, assumes a 1x1x1 mm^3 voxel dimension and positively aligned volume. 
+
+        Navigation: 
+            All navigation is done from the perspective of the patient according to the affine of the volume. 
+            
+                    a       -   Move volume in the negative X direction   -   Patient moves to their Right
+                    d       -   Move volume in the positive X direction   -   Patient moves to their Left
+
+                    w       -   Move volume in the negative Y direction   -   Patient moves to their Anterior
+                    s       -   Move volume in the positive Y direction   -   Patient moves to their Posterior
+
+                    q       -   Move volume in the negative Z direction   -   Patient moves to their Inferior
+                    e       -   Move volume in the positive Z direction   -   Patient moves to their Superior
+
+                    z       -   Negative change in image index            -
+                    c       -   Positive change in image index            -
+
+            Shift + a       -   Negative pitch of volume                  -   Rotates about X, moves Z into Y. 
+            Shift + d       -   Positive pitch of volume                  -   Rotates about X, moves Y into Z. 
+
+            Shift + w       -   Negative yaw of volume                    -   Rotates about Y, moves Z into X. 
+            Shift + s       -   Positive yaw of volume                    -   Rotates about Y, moves X into Z. 
+
+            Shift + q       -   Negative roll of volume                   -   Rotates about Z, moves Y into X. 
+            Shift + e       -   Positive roll of volume                   -   Rotates about Z, moves X into Y. 
+
+            Shift + z       -   Swaps between Group and Local control     -  
+            Shift + c       -   Swaps between Group and Local control     - 
+
+            Alt + a         -   Negative zoom in X direction              -   
+            Alt + d         -   Positive zoom in X direction              -   
+
+            Alt + w         -   Negative zoom in Y direction              -   
+            Alt + s         -   Positive zoom in Y direction              -   
+            
+            Alt + q         -   Negative zoom in Z direction              -   
+            Alt + e         -   Positive zoom in Z direction              -   
+
+            Crtl + Any      -   Changes navigation setting at 5x the current increment. 
+                            -   Does not effect z and c keys. 
+
+            Middle Mouse    -   Click and drag to move the volume. Currently a little floaty as the rendering and mouse motion aren't perfectly aligned. 
+
+            Spacebar        -   Create landmark at crosshair position"""

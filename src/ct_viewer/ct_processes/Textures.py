@@ -1,6 +1,5 @@
 from .Globals import *
 from . import CTVolume
-from . import Themes
 
 
 class Texture(object):

@@ -151,7 +151,7 @@ class MainView:
 
         with dpg.draw_layer(parent = self.drawlist_texture_tag,
                             tag = self.mouse_pos_draw_layer_tag):
-            initial_text = \
+            initial_text_mouse = \
 """                    (X    , Y    , Z    , HU   )
 Texture Position  : (0.000, 0.000)
 Physical Position : (0.000, 0.000, 0.000)
@@ -162,7 +162,7 @@ Mouse Position    : (0.000, 0.000, 0.000, 0.000)"""
                                color = (0, 0, 0, text_box_alpha), 
                                fill = (0, 0, 0, text_box_alpha))
             dpg.draw_text(mouse_text_start, 
-                          initial_text, 
+                          initial_text_mouse, 
                           user_data = mouse_text_start,
                           tag = self.mouse_pos_texture_info_text, 
                           size = 14)
@@ -178,7 +178,7 @@ Mouse Position    : (0.000, 0.000, 0.000, 0.000)"""
 
         with dpg.draw_layer(parent = self.drawlist_texture_tag,
                             tag = self.crosshair_pos_draw_layer_tag):
-            initial_text = \
+            initial_text_crosshair = \
 """                    (X    , Y    , Z    , HU   )
 Texture Position  : (0.000, 0.000)
 Physical Position : (0.000, 0.000, 0.000)
@@ -189,7 +189,7 @@ Crosshair Position: (0.000, 0.000, 0.000, 0.000)"""
                                color = (0, 0, 0, text_box_alpha), 
                                fill = (0, 0, 0, text_box_alpha))
             dpg.draw_text(crosshair_text_start, 
-                          initial_text, 
+                          initial_text_crosshair, 
                           user_data = crosshair_text_start,
                           tag = self.crosshair_pos_texture_info_text, 
                           size = 14)
