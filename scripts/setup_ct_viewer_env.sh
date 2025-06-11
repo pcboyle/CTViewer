@@ -3,12 +3,15 @@
 # curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
 # bash Miniforge3-$(uname)-$(uname -m).sh
 
-# source /home/$USER/mambaforge/etc/profile.d/conda.sh
-# source /home/$USER/mambaforge/etc/profile.d/mamba.sh
+# "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
 
-micromamba create --name ct_viewer python=3.12
+# sleep 0.5
 
 eval "$(micromamba shell hook --shell bash)"
+
+sleep 0.5
+
+micromamba create --name ct_viewer python=3.13
 
 sleep 0.5
 
@@ -26,7 +29,7 @@ pip install dearpygui python-gdcm
 
 # Install ct_viewer
 
-cd /home/pboyle/Dropbox/Code/Python/medical_physics/ct_viewer/dist/
+cd /home/pboyle/Dropbox/Code/Python/medical_physics/CTViewer/dist/
 
 latest_whl_file="$(find ./ -type f -name '*.whl' -printf '%T@ %p\n' | sort -n -r | head -1 | cut -d' ' -f2-)"
 

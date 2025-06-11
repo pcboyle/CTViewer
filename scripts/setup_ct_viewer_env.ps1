@@ -1,14 +1,3 @@
-# # Load Conda and Mamba into the session
-# $conda_path = "$HOME\mambaforge\etc\profile.d\conda.ps1"
-# $mamba_path = "$HOME\mambaforge\etc\profile.d\mamba.ps1"
-
-# if (Test-Path $conda_path) {
-#     . $conda_path
-# }
-# if (Test-Path $mamba_path) {
-#     . $mamba_path
-# }
-
 # Create and activate the Conda environment
 & micromamba create -n ct_viewer python=3.12 -y
 & micromamba activate ct_viewer

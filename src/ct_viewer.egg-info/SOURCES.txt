@@ -4,6 +4,8 @@ install_instructions.txt
 pyproject.toml
 requirements.txt
 .vscode/launch.json
+dist/ct_viewer-0.3.3.1.2-py3-none-any.whl
+dist/ct_viewer-0.3.3.1.2.tar.gz
 scripts/install_latest_ct_viewer.ps1
 scripts/install_latest_ct_viewer.sh
 scripts/setup_ct_viewer_env.ps1

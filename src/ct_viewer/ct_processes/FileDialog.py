@@ -460,8 +460,8 @@ class FileDialog(object):
         self.current_directory = Path(path)
         self.has_parent = has_parent
         self.debug = debug
-        self.volume_layer_groups: VolumeLayer.VolumeLayerGroups = None
-        self.information_box: InformationBox.InformationBox = None
+        self.VolumeLayerGroups: VolumeLayer.VolumeLayerGroups = None
+        self.InformationBox: InformationBox.InformationBox = None
         self.drawlist_tag = '',
         self.current_directory_file_dict = {}
         self.selected_files_dict = {}
@@ -534,18 +534,18 @@ class FileDialog(object):
             dpg.bind_item_theme(item, self.theme_dict[file_type])
 
     def initialize(self, 
-                   volume_layer_groups: VolumeLayer.VolumeLayerGroups = None,
-                   draw_window: NewMainView.MainView = None, 
-                   options_panel: OptionsPanel.OptionsPanel = None,
-                   information_box: InformationBox.InformationBox = None,
+                   VolumeLayerGroups: VolumeLayer.VolumeLayerGroups = None,
+                   DrawWindow: NewMainView.MainView = None, 
+                   OptionsPanel: OptionsPanel.OptionsPanel = None,
+                   InformationBox: InformationBox.InformationBox = None,
                    debug = False):
         if not self.has_parent:
             dpg.create_context()
 
-        self.volume_layer_groups = volume_layer_groups
-        self.draw_window = draw_window
-        self.options_panel = options_panel
-        self.information_box = information_box
+        self.VolumeLayerGroups = VolumeLayerGroups
+        self.DrawWindow = DrawWindow
+        self.OptionsPanel = OptionsPanel
+        self.InformationBox = InformationBox
 
         dpg.add_item_double_clicked_handler(button = dpg.mvMouseButton_Left, tag = self.double_click_handler_tag, callback = self.double_click_callback, parent = G.ITEM_HANDLER_REG_TAG)
         dpg.add_item_clicked_handler(button = dpg.mvMouseButton_Left, tag = self.single_click_handler_tag, callback = self.item_single_clicked, parent = G.ITEM_HANDLER_REG_TAG)
@@ -720,12 +720,12 @@ class FileDialog(object):
         self.load_file_dict = dict(load_file_dict)
         data_loader = DataLoader(self.load_file_dict)
         self.hide()
-        data_loader.load_selected_files(self.volume_layer_groups, 
-                                        self.draw_window)
-        data_loader.finalize_load_volumes(self.volume_layer_groups, 
-                                          self.draw_window, 
-                                          self.options_panel,
-                                          self.information_box)
+        data_loader.load_selected_files(self.VolumeLayerGroups, 
+                                        self.DrawWindow)
+        data_loader.finalize_load_volumes(self.VolumeLayerGroups, 
+                                          self.DrawWindow, 
+                                          self.OptionsPanel,
+                                          self.InformationBox)
         self.deselect_all()
 
     def get_selected_volumes(self):
@@ -1352,57 +1352,56 @@ class DataLoader(object):
 
 
     def finalize_load_volumes(self, 
-                              volume_layer_groups: VolumeLayer.VolumeLayerGroups,
-                              draw_window: NewMainView.MainView,
-                              options_panel: OptionsPanel.OptionsPanel,
-                              information_box: InformationBox.InformationBox):
-        if volume_layer_groups.get_group_by_index(0).n_volumes > 0:
-            if not volume_layer_groups.active:
-                volume_layer_groups.set_current_volume_by_index(0, 0)
-                volume_layer_groups.get_current_volume().set_drawlayer_tag(draw_window.return_texture_drawlayer_tag(draw_window.window_tag))
-                volume_layer_groups.get_current_volume().add_texture_to_drawlist(drawlist=draw_window.return_texture_drawlayer_tag(draw_window.window_tag))
-                volume_layer_groups.get_current_volume().set_colormap_scale_tag(draw_window.return_colormap_tag(draw_window.window_tag))
-                volume_layer_groups.get_current_group().set_colormap_scale_tag(draw_window.return_colormap_tag(draw_window.window_tag))
-                volume_layer_groups.get_current_group().set_drawlayer_tag(draw_window.return_texture_drawlayer_tag(draw_window.window_tag))
+                              VolumeLayerGroups: VolumeLayer.VolumeLayerGroups,
+                              DrawWindow: NewMainView.MainView,
+                              OptionsPanel: OptionsPanel.OptionsPanel,
+                              InformationBox: InformationBox.InformationBox):
+        if VolumeLayerGroups.get_group_by_index(0).n_volumes > 0:
+            if not VolumeLayerGroups.active:
+                VolumeLayerGroups.set_current_volume_by_index(0, 0)
+                VolumeLayerGroups.get_current_volume().set_drawlayer_tag(DrawWindow.return_texture_drawlayer_tag(DrawWindow.window_tag))
+                VolumeLayerGroups.get_current_volume().add_texture_to_drawlist(drawlist=DrawWindow.return_texture_drawlayer_tag(DrawWindow.window_tag))
+                VolumeLayerGroups.get_current_volume().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.window_tag))
+                VolumeLayerGroups.get_current_group().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.window_tag))
+                VolumeLayerGroups.get_current_group().set_drawlayer_tag(DrawWindow.return_texture_drawlayer_tag(DrawWindow.window_tag))
 
-                information_box.load_image(volume_layer_groups)
+                InformationBox.load_image(VolumeLayerGroups)
 
                 dpg.enable_item('save_landmarks_button')
                 dpg.enable_item('load_landmarks_button')
 
-                volume_layer_groups.set_active()
+                VolumeLayerGroups.set_active()
 
-        G.N_VOLUMES = len(volume_layer_groups.get_current_group().volume_names)
-        G.OPTIONS_DICT['img_index_slider']['max_value'] = volume_layer_groups.get_current_group().n_volumes
+        G.N_VOLUMES = len(VolumeLayerGroups.get_current_group().volume_names)
+        G.OPTIONS_DICT['img_index_slider']['max_value'] = VolumeLayerGroups.get_current_group().n_volumes
         dpg.set_item_user_data(G.OPTIONS_DICT['img_index_slider']['slider_tag'],
-                               volume_layer_groups.current_group_and_volume)
+                               VolumeLayerGroups.current_group_and_volume)
         
         dpg.configure_item(G.OPTIONS_DICT['img_index_slider']['slider_tag'], 
-                            max_value = volume_layer_groups.get_group_by_name('AllVolumes').n_volumes)
+                            max_value = VolumeLayerGroups.get_group_by_name('AllVolumes').n_volumes)
         
-        G.APP.image_tools.update_selector_lists(volume_layer_groups.get_current_group().volume_names)
+        G.APP.image_tools.update_selector_lists(VolumeLayerGroups.get_current_group().volume_names)
         G.APP.image_tools.enable_options()
 
-        information_box.initialize_landmark_tables(volume_layer_groups.get_current_group().volume_names)
+        InformationBox.initialize_landmark_tables(VolumeLayerGroups.get_current_group().volume_names)
         
-        options_panel.enable_options()
-        dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {volume_layer_groups.get_current_volume().name}')
+        OptionsPanel.enable_options()
+        dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {VolumeLayerGroups.get_current_volume().name}')
         
-        options_panel.update_volume('FileDialog', None, None)
-        # volume_layer_groups.get_current_group().set_text_info_tag(draw_window.return_texture_info_text_tag(draw_window.window_tag))
-        volume_layer_groups.get_current_group().set_landmark_draw_layer_tag(draw_window.return_landmark_drawlayer_tag(draw_window.window_tag))
-        volume_layer_groups.update_histogram('volume')
-        volume_layer_groups.update_histogram('texture')
+        OptionsPanel.update_volume('FileDialog', None, None)
+        VolumeLayerGroups.get_current_group().set_landmark_draw_layer_tag(DrawWindow.return_landmark_drawlayer_tag(DrawWindow.window_tag))
+        VolumeLayerGroups.update_histogram('volume')
+        VolumeLayerGroups.update_histogram('texture')
 
-        affine = volume_layer_groups.get_volume_by_index(0, 0).ctvolume.affine
-        layers_tab_text = f'{volume_layer_groups.get_volume_by_index(0, 0).name}'
+        affine = VolumeLayerGroups.get_volume_by_index(0, 0).ctvolume.affine
+        layers_tab_text = f'{VolumeLayerGroups.get_volume_by_index(0, 0).name}'
 
         for row in affine:
             layers_tab_text = f'{layers_tab_text}\n\t{row}'
 
-        for vol_index in range(1, volume_layer_groups.get_group_by_index(0).n_volumes):
-            affine = volume_layer_groups.get_volume_by_index(0, vol_index).ctvolume.affine
-            vol_name = volume_layer_groups.get_volume_by_index(0, vol_index).name
+        for vol_index in range(1, VolumeLayerGroups.get_group_by_index(0).n_volumes):
+            affine = VolumeLayerGroups.get_volume_by_index(0, vol_index).ctvolume.affine
+            vol_name = VolumeLayerGroups.get_volume_by_index(0, vol_index).name
             layers_tab_text = f'{layers_tab_text}\n{vol_name}'
             
             for row in affine:
@@ -1427,8 +1426,8 @@ class DataLoader(object):
             dpg.add_text('', tag=G.LOADING_WINDOW_TEXT)
 
     def load_selected_files(self, 
-                            volume_layer_groups: VolumeLayer.VolumeLayerGroups, 
-                            draw_window = NewMainView.MainView,
+                            VolumeLayerGroups: VolumeLayer.VolumeLayerGroups, 
+                            DrawWindow: NewMainView.MainView,
                             files_to_be_loaded_dict = None):
         
         self.show_loading_window()
@@ -1444,7 +1443,7 @@ class DataLoader(object):
             load_message = f'Loading {file_name}\n\tFile ID: {file_id}'
             dpg.set_value(G.LOADING_WINDOW_TEXT, load_message)
 
-            volume_layer_groups.add_volume_to_group('AllVolumes',
+            VolumeLayerGroups.add_volume_to_group('AllVolumes',
                                                     self.load_type_dict[file_type](files_to_be_loaded_dict, 
                                                                                    file_id, 
                                                                                    file_name = file_name))

@@ -23,20 +23,22 @@ class CTViewer:
 
         self.VolumeLayerGroups:VolumeLayer.VolumeLayerGroups = VolumeLayer.VolumeLayerGroups()
         self.VolumeLayerGroups.add_group(group_name = 'AllVolumes')
-        self.main_view:NewMainView.MainView = NewMainView.MainView(self.VolumeLayerGroups)
+        self.DrawWindow:NewMainView.MainView = NewMainView.MainView(self.VolumeLayerGroups)
+
         self.texture_registry = dpg.add_texture_registry(tag = G.TEX_REG_TAG) # 'main_texture_registry'
         self.colormap_registry = dpg.add_colormap_registry(tag = G.COLORMAP_TAG)
         self.value_registry = dpg.add_value_registry(tag = G.VALUE_REG_TAG)
         self.handler_registry = dpg.add_handler_registry(tag = G.HANDLER_REG_TAG)
-        # Need an item handler registry for hovering only. 
         self.item_handler_registry = dpg.add_item_handler_registry(tag = G.ITEM_HANDLER_REG_TAG)
         self.item_hovered_registry = dpg.add_item_handler_registry(tag = 'item_hovered_registry')
-        self.themes = Themes.Themes()
-        self.themes.register_colormaps(G.COLORMAP_DICT,
+
+        self.Themes = Themes.Themes()
+        self.Themes.register_colormaps(G.COLORMAP_DICT,
                                        self.colormap_registry)
         detect_drives = False
         if f'{sys.platform}' == 'win32':
             detect_drives = True
+
         self.FileDialog = FileDialog.FileDialog(G.CONFIG_DICT['directories']['image_dir'], 
                                                 has_parent = True,
                                                 debug = True, 
@@ -53,9 +55,10 @@ class CTViewer:
         CTVolume._initialize_interps()
         
         with main_window:
-            self.menu_bar = MenuBar.MenuBar(value_registry = self.value_registry)
+            self.MenuBar = MenuBar.MenuBar(value_registry = self.value_registry)
             with dpg.group(tag = 'RootWindowGroup',
                            horizontal = True):
+                
                 with dpg.child_window(tag = 'Navigation_Window',
                                       width = G.CONFIG_DICT['app_settings']['navigation_window_width'], 
                                       height = G.CONFIG_DICT['app_settings']['navigation_window_height'],
@@ -66,10 +69,9 @@ class CTViewer:
                         with dpg.tab(label = 'Navigation', 
                                      tag = G.NAVIGATION_TAB_TAG):
                             with dpg.group(tag = 'OptionsPanel_ImageTools_Group'):
-                                self.options_panel = OptionsPanel.OptionsPanel(debug = True)
-                                self.image_tools = ImageTools.ImageTools(self.VolumeLayerGroups)
-                        # with dpg.tab(label = 'File Explorer', tag = G.FILE_EXPLORER_TAB_TAG):
-                        #     self.file_explorer = FileExplorer.FileExplorer()
+                                self.OptionsPanel = OptionsPanel.OptionsPanel(debug = True)
+                                self.ImageTools = ImageTools.ImageTools(self.VolumeLayerGroups)
+
                 with dpg.child_window(tag = 'MainViewTexture_Window',
                                       width = G.CONFIG_DICT['app_settings']['tab_pane_width'], #G.MAIN_TAB_VIEW_WINDOW_DEFAULTS['WINDOW_WIDTH'],
                                       height = G.CONFIG_DICT['app_settings']['tab_pane_height'], #G.MAIN_TAB_VIEW_WINDOW_DEFAULTS['WINDOW_HEIGHT'],
@@ -78,45 +80,45 @@ class CTViewer:
                                      callback = self.print_current_tab):
                         with dpg.tab(label = 'Volume Tab', 
                                      tag = G.VOLUME_TAB_TAG):
-                            self.main_view.create_draw_window('MainTexture', 
-                                                              G.VOLUME_TAB_TAG, 
-                                                              item_handler_reg_tag=self.item_hovered_registry)
+                            self.DrawWindow.create_draw_window('MainTexture', 
+                                                               G.VOLUME_TAB_TAG, 
+                                                               item_handler_reg_tag = self.item_hovered_registry)
                         with dpg.tab(label = 'Analysis Tab', 
                                      tag = G.ANALYSIS_TAB_TAG):
-                            self.analysis_view = AnalysisView.AnalysisView()
+                            self.AnalysisView = AnalysisView.AnalysisView()
                 
-                self.info_box = InformationBox.InformationBox(self.VolumeLayerGroups)
+                self.InformationBox = InformationBox.InformationBox(self.VolumeLayerGroups)
 
-        self.image_tools.set_options_panel(self.options_panel)
-        self.options_panel.set_volume_and_draw_objects(self.VolumeLayerGroups,
-                                                       self.main_view)
+        self.ImageTools.set_options_panel(self.OptionsPanel)
+        self.OptionsPanel.set_volume_and_draw_objects(self.VolumeLayerGroups,
+                                                      self.DrawWindow)
         
-        self.options_panel.set_info_box(self.info_box)
-        self.options_panel.set_image_tools(self.image_tools)
+        self.OptionsPanel.set_info_box(self.InformationBox)
+        self.OptionsPanel.set_image_tools(self.ImageTools)
         
         self.FileDialog.initialize(volume_layer_groups = self.VolumeLayerGroups,
-                                   draw_window = self.main_view,
-                                   options_panel = self.options_panel,
-                                   information_box = self.info_box,
+                                   draw_window = self.DrawWindow,
+                                   options_panel = self.OptionsPanel,
+                                   information_box = self.InformationBox,
                                    debug = G.DEBUG_MODE)
         
         dpg.add_item_hover_handler(parent = self.item_hovered_registry, 
-                                   user_data = self.main_view.return_mouse_pos_texture_info_text_tag(),
+                                   user_data = self.DrawWindow.return_mouse_pos_texture_info_text_tag(),
                                    callback = self.VolumeLayerGroups.update_mouse_volume_coord_info)
-        dpg.bind_item_handler_registry(self.main_view.return_texture_drawlist_tag(self.main_view.window_tag),
+        dpg.bind_item_handler_registry(self.DrawWindow.return_texture_drawlist_tag(self.DrawWindow.window_tag),
                                        self.item_hovered_registry)
         
         dpg.add_key_press_handler(key = dpg.mvKey_None, 
-                                  callback = self.options_panel.mouse_and_keyboard_navigation, 
+                                  callback = self.OptionsPanel.mouse_and_keyboard_navigation, 
                                   tag = 'mouse_and_keyboard_navigation_handler', 
                                   parent = self.handler_registry)
         
-        self.menu_bar.set_classes(self, 
+        self.MenuBar.set_classes(self, 
                                   self.VolumeLayerGroups,
-                                  self.info_box,
-                                  self.options_panel,
+                                  self.InformationBox,
+                                  self.OptionsPanel,
                                   self.FileDialog,
-                                  self.image_tools)
+                                  self.ImageTools)
 
     def print_current_tab(self, sender, app_data):
         print('Tab clicked!')

@@ -35,6 +35,17 @@ def get_gpu_utilization():
     pass
 
 
+def get_gpu_information():
+    gpu_device_info = {}
+    try:
+        for device_n in range(cp.cuda.runtime.getDeviceCount()):
+            device_properties = cp.cuda.runtime.getDeviceProperties(device_n)
+            gpu_device_info[f'{device_n}'] = {'name': device_properties['name'].decode(),
+                                              'totalGlobalMem': device_properties['totalGlobalMem'] / 1.074e9,
+                                              }
+    except:
+        pass
+
 def main():
     parser = argparse.ArgumentParser(
         prog='CT Viewer',
@@ -42,7 +53,7 @@ def main():
     )
 
     parser.add_argument('-debug', '--debug', help = 'Turn debug mode on.', action = 'store_true')
-    parser.add_argument('-gpu', '--gpu', nargs='?', type=int, action='store', const = 0, default = -1,
+    parser.add_argument('-gpu', '--gpu', nargs='?', type=int, action='store', const = 0, default = 0,
                         help='Enable GPU computation and select device number. Default device is 0.')
 
     args = parser.parse_args()
@@ -57,7 +68,7 @@ def main():
     if args.gpu > -1:
         if args.gpu >= cp.cuda.runtime.getDeviceCount():
             print(f'APP Message: Device {args.gpu = } not valid. Max device index is {cp.cuda.runtime.getDeviceCount() - 1}.')
-            print('APP Message: Running in CPU Mode.')
+            print(f'Running using GPU device {0}: ')
             
         else:
             setattr(G, 'GPU_MODE', True)

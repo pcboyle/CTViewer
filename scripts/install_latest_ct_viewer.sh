@@ -2,12 +2,9 @@
 
 echo "Updating ct_viewer module for $USER."
 
-source /home/$USER/mambaforge/etc/profile.d/conda.sh
-source /home/$USER/mambaforge/etc/profile.d/mamba.sh
+micromamba activate ct_viewer
 
-mamba activate ct_viewer
-
-active_environment="$(mamba info | grep 'active environment' | cut -d ':' -f 2 | xargs)"
+active_environment="$(micromamba info | grep 'active environment' | cut -d ':' -f 2 | xargs)"
 
 echo "Updating ct_viewer module in the $active_environment environment."
 

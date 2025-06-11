@@ -5,11 +5,12 @@ class MenuBar:
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
 
-        self.volume_layer_groups = None
-        self.options_panel = None
-        self.image_tools = None
-        self.infobox_close = None
-        self.file_dialog = None
+        self.VolumeLayerGroups = None
+        self.OptionsPanel = None
+        self.ImageTools = None
+        self.InformationBox = None
+        self.FileDialog = None
+        self.NodeEditor = None
 
         with dpg.menu_bar(tag = 'MenuBar'):
             with dpg.menu(label = 'File', tag = 'MenuBarFile'):
@@ -82,7 +83,7 @@ class MenuBar:
 
 
     def open_node_editor(self):
-        G.APP.NodeEditor.open_node_editor()
+        self.NodeEditor.open()
 
     def show_about(self):
         dpg.show_about()
@@ -111,32 +112,34 @@ class MenuBar:
         dpg.show_item(G.TEX_REG_TAG)
 
     def open_files(self, sender, app_data):
-        self.file_dialog.show()
+        self.FileDialog.show()
 
     def set_classes(self, 
                     VolumeLayerGroups,
                     InformationBox,
                     OptionsPanel,
                     FileDialog,
-                    ImageTools) -> None:
-        self.volume_layer_groups = VolumeLayerGroups
-        self.info_box = InformationBox
-        self.options_panel = OptionsPanel
-        self.file_dialog = FileDialog
-        self.image_tools = ImageTools
+                    ImageTools,
+                    NodeEditor) -> None:
+        self.VolumeLayerGroups = VolumeLayerGroups
+        self.InformationBox = InformationBox
+        self.OptionsPanel = OptionsPanel
+        self.FileDialog = FileDialog
+        self.ImageTools = ImageTools
+        self.NodeEditor = NodeEditor
 
     def close_all(self):
         print('MenuBar Message: Closing All Volumes')
-        print(f'MenuBar Message: {self.volume_layer_groups.active = }')
-        if self.volume_layer_groups.active:
+        print(f'MenuBar Message: {self.VolumeLayerGroups.active = }')
+        if self.VolumeLayerGroups.active:
             dpg.set_value('InfoBoxTab_layers_text', '')
             
-            self.info_box.close_image()
-            self.options_panel.disable_options()
-            self.image_tools.disable_options()
+            self.InformationBox.close_image()
+            self.OptionsPanel.disable_options()
+            self.ImageTools.disable_options()
             dpg.configure_item('save_landmarks_button', enabled = False)
 
-            self.volume_layer_groups.remove_all_groups()
+            self.VolumeLayerGroups.remove_all_groups()
 
             setattr(self, 'VOLUME_LOADED', False)
             for GLOBAL_KEY in G.GLOBAL_DEFAULTS.keys():
