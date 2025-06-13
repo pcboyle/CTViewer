@@ -2,7 +2,7 @@ from .Globals import *
 from . import VolumeLayer
 
 class InformationBox(object):
-    def __init__(self, volume_layer_groups: VolumeLayer.VolumeLayerGroups):
+    def __init__(self, VolumeLayerGroups: VolumeLayer.VolumeLayerGroups):
         
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
@@ -13,7 +13,7 @@ class InformationBox(object):
         self.aliases = []
         self.infobox_options = []
         self.landmark_volumes = []
-        self.volume_layer_groups = volume_layer_groups
+        self.VolumeLayerGroups = VolumeLayerGroups
         
         with dpg.child_window(tag = 'InformationBox_Window',
                               width = G.CONFIG_DICT['app_settings']['info_box_width'], # G.INFORMATION_BOX_WINDOW_DEFAULTS['WINDOW_WIDTH'], 
@@ -197,12 +197,12 @@ class InformationBox(object):
 
     def update_histogram_volume(self):
         histogram_info = self.get_histogram_info('volume')
-        self.volume_layer_groups.update_histogram('volume', 
+        self.VolumeLayerGroups.update_histogram('volume', 
                                                   histogram_info)
 
     def update_histogram_current_view(self):
         histogram_info = self.get_histogram_info('texture')
-        self.volume_layer_groups.update_histogram('texture', 
+        self.VolumeLayerGroups.update_histogram('texture', 
                                                   histogram_info)
 
 
@@ -226,7 +226,7 @@ class InformationBox(object):
 
     def save_landmarks(self):
         print('InformationBox Message: save_landmarks')
-        self.volume_layer_groups.save_landmarks()
+        self.VolumeLayerGroups.save_landmarks()
 
 
     def initialize_landmark_tables(self, volume_names):
@@ -307,7 +307,7 @@ class InformationBox(object):
 
     def delete_landmark(self, sender, app_data, user_data):
         volume_name, landmark_id = user_data
-        self.volume_layer_groups.delete_landmark(volume_name, landmark_id)
+        self.VolumeLayerGroups.delete_landmark(volume_name, landmark_id)
         
         popup_id = dpg.get_item_parent(sender)
         volume_name = sender.split('++')[1]
@@ -332,8 +332,8 @@ class InformationBox(object):
                       [np.zeros(5), np.zeros(5)])
 
 
-    def load_image(self, volume_layer_groups:VolumeLayer.VolumeLayerGroups):
-        self.update_group_names(volume_layer_groups)
+    def load_image(self, VolumeLayerGroups:VolumeLayer.VolumeLayerGroups):
+        self.update_group_names(VolumeLayerGroups)
         self.enable_options()
         dpg.show_item('InfoBoxTab_histogram_volume_plot_line_series')
         dpg.show_item('InfoBoxTab_histogram_texture_plot_line_series')
@@ -352,9 +352,9 @@ class InformationBox(object):
         self.disable_options()
 
 
-    def update_group_names(self, volume_layer_groups: VolumeLayer.VolumeLayerGroups = None):
+    def update_group_names(self, VolumeLayerGroups: VolumeLayer.VolumeLayerGroups = None):
         self.group_text = ''
-        for group in volume_layer_groups.group_names: #G.APP.VolumeLayerGroups.group_names:
+        for group in VolumeLayerGroups.group_names: #G.APP.VolumeLayerGroups.group_names:
             self.group_text = f'{self.group_text}\n{group}'
         dpg.set_value('group_tab_text', self.group_text)
 

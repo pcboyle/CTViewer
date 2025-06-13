@@ -16,15 +16,16 @@ class OptionsPanel:
                  debug = False):
         
         # These are set in set_volume_and_draw_objects
-        self.volume_layer_groups = None
-        self.draw_window = None
+        self.VolumeLayerGroups = None
+        self.DrawWindow = None
         self.orientation_tags = []
         self.intensity_tags = []
         self.debug = debug
-        self.information_box = None
+        self.InformationBox = None
         self.image_tools = None
         self.tag_list = []
         self.handler_list = []
+        self.reset_list = []
 
         # dpg.mvKey: [no mods | mod shift | mod alt], key_alias. 
         self.mouse_and_keyboard_controls = {
@@ -98,8 +99,17 @@ class OptionsPanel:
 
 
     def create_option_slider_group(self, 
-                                   ):
+                                   slider_func,
+                                   group_kwargs: dict,
+                                   text_kwargs: dict,
+                                   slider_kwargs: dict):
         
+        with dpg.group(**group_kwargs):
+            dpg.add_text(**text_kwargs)
+            slider_func(**slider_kwargs)
+
+        self.tag_list.append(dpg.last_item())
+        self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
 
         pass
 
@@ -113,21 +123,36 @@ class OptionsPanel:
                               height = height): 
             
             option_key = 'img_index_slider'
-            
-            with dpg.group(horizontal = True, tag = G.OPTIONS_DICT[option_key]['group_tag']):
-                dpg.add_text(G.OPTIONS_DICT[option_key]['label'], 
-                             tag = G.OPTIONS_DICT[option_key]['label_tag'])
-                dpg.add_slider_int(label = '', 
-                                   width = 150, 
-                                   height = 25, 
-                                   user_data = (0, None), # update_user_data, previous_volume_index
-                                   callback = self.update_image_index,
-                                   source = f"{G.OPTIONS_DICT[option_key]['slider_tag']}_current_value",
-                                   default_value = G.OPTIONS_DICT[option_key]['default_value'],
-                                   min_value = G.OPTIONS_DICT[option_key]['min_value'], 
-                                   max_value = G.OPTIONS_DICT[option_key]['max_value'],
-                                   tag = G.OPTIONS_DICT[option_key]['slider_tag'])
-                self.tag_list.append(dpg.last_item())
+            self.create_option_slider_group(dpg.add_slider_int,
+                                            group_kwargs = {'horizontal': True, 'tag': G.OPTIONS_DICT[option_key]['group_tag']},
+                                            text_kwargs = {'label': G.OPTIONS_DICT[option_key]['label'], 
+                                                           'tag': G.OPTIONS_DICT[option_key]['label_tag']},
+                                            slider_kwargs = {'label': '', 
+                                                             'width': 150, 
+                                                             'height': 25, 
+                                                             'user_data': (0, None), 
+                                                             'callback': self.update_image_index, 
+                                                             'source': f"{G.OPTIONS_DICT[option_key]['slider_tag']}_current_value",
+                                                             'default_value': G.OPTIONS_DICT[option_key]['default_value'], 
+                                                             'min_value': G.OPTIONS_DICT[option_key]['min_value'],
+                                                             'max_value': G.OPTIONS_DICT[option_key]['max_value'],
+                                                             'tag': G.OPTIONS_DICT[option_key]['slider_tag']})
+            # with dpg.group(horizontal = True, tag = G.OPTIONS_DICT[option_key]['group_tag']):
+            #     dpg.add_text(label = G.OPTIONS_DICT[option_key]['label'], 
+            #                  tag = G.OPTIONS_DICT[option_key]['label_tag'])
+            #     dpg.add_slider_int(label = '', 
+            #                        width = 150, 
+            #                        height = 25, 
+            #                        user_data = (0, None), # update_user_data, previous_volume_index
+            #                        callback = self.update_image_index,
+            #                        source = f"{G.OPTIONS_DICT[option_key]['slider_tag']}_current_value",
+            #                        default_value = G.OPTIONS_DICT[option_key]['default_value'],
+            #                        min_value = G.OPTIONS_DICT[option_key]['min_value'], 
+            #                        max_value = G.OPTIONS_DICT[option_key]['max_value'],
+            #                        tag = G.OPTIONS_DICT[option_key]['slider_tag'])
+            #     self.tag_list.append(dpg.last_item())
+            #     self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
+                
             
             # Orientation Group
             with dpg.group(horizontal = True, tag = 'orientation_group_options'):
@@ -156,6 +181,7 @@ class OptionsPanel:
                                                     on_enter = True,
                                                     callback = self.set_increment_value)
                                 self.tag_list.append(dpg.last_item())
+                                self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                                 
                             dpg.add_text(G.OPTIONS_DICT[option_key]['label'], 
                                          tag = G.OPTIONS_DICT[option_key]['label_tag'])
@@ -174,6 +200,7 @@ class OptionsPanel:
                                                 on_enter = True,
                                                 callback = self.update_volume)
                             self.tag_list.append(dpg.last_item())
+                            self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                             self.orientation_tags.append(dpg.last_item())
                         
                         dpg.bind_item_handler_registry(G.OPTIONS_DICT[option_key]['group_tag'], 
@@ -187,6 +214,7 @@ class OptionsPanel:
                                user_data = False,
                                callback = self.update_frame_of_reference)
                 self.tag_list.append(dpg.last_item())
+                # self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                 
                 tag = f'orientation_{G.GROUP_LAYER_RESET_BUTTON}'
                 dpg.add_button(label = 'Reset', 
@@ -219,6 +247,7 @@ class OptionsPanel:
                                                     on_enter = True,
                                                     callback = self.set_increment_value)
                                 self.tag_list.append(dpg.last_item())
+                                self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                                 
                             dpg.add_text(G.OPTIONS_DICT[option_key]['label'], 
                                          tag = G.OPTIONS_DICT[option_key]['label_tag'])
@@ -237,6 +266,7 @@ class OptionsPanel:
                                                 on_enter = True,
                                                 callback = self.update_volume)
                             self.tag_list.append(dpg.last_item())
+                            self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                             self.intensity_tags.append(dpg.last_item())
                                 
                         dpg.bind_item_handler_registry(G.OPTIONS_DICT[option_key]['group_tag'], G.ITEM_HANDLER_REG_TAG)
@@ -258,11 +288,15 @@ class OptionsPanel:
                                   default_value = 'Fire',
                                   tag = 'colormap_combo')
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
+
                     dpg.add_checkbox(label = 'Reverse', 
                                      tag = 'reverse_colormap_checkbox', 
                                      callback = self.update_volume)
-                    self.tag_list.append(dpg.last_item())
                     dpg.set_value('colormap_combo', 'Fire')
+                    
+                    self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
 
                 with dpg.group(horizontal = True):
                     dpg.add_text('Colorscale:')
@@ -272,10 +306,13 @@ class OptionsPanel:
                                   default_value = 'Linear',
                                   tag = 'colormap_scale_combo')
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
+
                     dpg.add_checkbox(label = 'Rescale', 
                                      tag = 'rescale_colormap_checkbox', 
                                      callback = self.update_volume)
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                 
             with dpg.group(tag = 'mask_segmentation_options'):
                 with dpg.group(horizontal = True, 
@@ -287,12 +324,15 @@ class OptionsPanel:
                                   default_value = 'Body', 
                                   tag = 'mask_combo')
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
+
                     dpg.set_value('mask_combo', 'Body')
                     dpg.add_checkbox(label = 'Enable', 
                                      tag = 'enable_mask_checkbox', 
                                      default_value=False, 
                                      callback = self.update_volume)
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
 
                 with dpg.group(horizontal = True, 
                                tag = 'mask_exclude_low_group'):
@@ -305,11 +345,14 @@ class OptionsPanel:
                                         default_value = -3500, 
                                         tag = 'mask_exclude_low_float')
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
+
                     dpg.add_checkbox(label = 'Enable', 
                                      tag = 'enable_mask_low_exclude_checkbox', 
                                      default_value=False, 
                                      callback = self.update_volume)
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                 
                     with dpg.popup('mask_exclude_low_group', 
                                    min_size = [15, 15], 
@@ -326,6 +369,7 @@ class OptionsPanel:
                                             on_enter = True,
                                             callback = self.set_increment_value)
                         self.tag_list.append(dpg.last_item())
+                        self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
 
                 with dpg.group(horizontal = True, 
                                tag = 'mask_exclude_high_group'):
@@ -338,11 +382,14 @@ class OptionsPanel:
                                         default_value = 3500, 
                                         tag = 'mask_exclude_high_float')
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
+
                     dpg.add_checkbox(label = 'Enable', 
                                      tag = 'enable_mask_high_exclude_checkbox', 
                                      default_value=False, 
                                      callback = self.update_volume)
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
 
                     with dpg.popup('mask_exclude_high_group', 
                                    min_size = [15, 15], 
@@ -359,6 +406,7 @@ class OptionsPanel:
                                             on_enter = True,
                                             callback = self.set_increment_value)
                         self.tag_list.append(dpg.last_item())
+                        self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                     
                 with dpg.group(horizontal = True, 
                                tag = 'mask_opacity_group'):
@@ -377,6 +425,7 @@ class OptionsPanel:
                                         max_clamped = True, 
                                         tag = 'mask_opacity_slider')
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                     
                     dpg.add_color_edit(label = 'Mask Color', 
                                        tag = 'mask_color_picker', 
@@ -384,6 +433,7 @@ class OptionsPanel:
                                        no_inputs = True, 
                                        callback = self.update_volume)
                     self.tag_list.append(dpg.last_item())
+                    self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
             
             with dpg.group(tag = 'interpolation_options', 
                            horizontal=True):
@@ -394,6 +444,7 @@ class OptionsPanel:
                               default_value = G.INTERPOLATION_OPTIONS[0], 
                               tag = 'interpolation_combo_box')
                 self.tag_list.append(dpg.last_item())
+                self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
             
             with dpg.group(horizontal=True):
                 dpg.add_text('Quaternion   ')
@@ -412,22 +463,21 @@ class OptionsPanel:
 
 
     def set_info_box(self, 
-                     information_box: InformationBox.InformationBox):
-        self.information_box = information_box
+                     InformationBox: InformationBox.InformationBox):
+        self.InformationBox = InformationBox
 
-    def set_image_tools(self, 
-                     image_tools: ImageTools.ImageTools):
-        self.image_tools = image_tools
+    def set_image_tools(self, ImageTools: ImageTools.ImageTools):
+        self.ImageTools = ImageTools
 
     def set_volume_and_draw_objects(self,
-                                    volume_layer_groups: VolumeLayer.VolumeLayerGroups,
-                                    draw_window: NewMainView.MainView):
+                                    VolumeLayerGroups: VolumeLayer.VolumeLayerGroups,
+                                    DrawWindow: NewMainView.MainView):
         
-        self.volume_layer_groups = volume_layer_groups
-        self.draw_window = draw_window
+        self.VolumeLayerGroups = VolumeLayerGroups
+        self.DrawWindow = DrawWindow
 
     def image_mouse_move(self, sender, app_data, user_data):
-        if self.volume_layer_groups.active:
+        if self.VolumeLayerGroups.active:
             with dpg.mutex():
                 mouse_pos = dpg.get_drawing_mouse_pos()
 
@@ -453,8 +503,8 @@ class OptionsPanel:
                     dpg.set_item_user_data(sender,
                                         mouse_pos)
                     
-                    previous_mouse_image_coords = self.volume_layer_groups.get_drawing_pos_coords(*previous_pos)
-                    current_mouse_image_coords = self.volume_layer_groups.get_drawing_pos_coords(*mouse_pos)
+                    previous_mouse_image_coords = self.VolumeLayerGroups.get_drawing_pos_coords(*previous_pos)
+                    current_mouse_image_coords = self.VolumeLayerGroups.get_drawing_pos_coords(*mouse_pos)
                     coord_delta = current_mouse_image_coords - previous_mouse_image_coords
                     
                     dpg.set_value("origin_x_slider_current_value", dpg.get_value("origin_x_slider_current_value") - coord_delta[1])
@@ -474,8 +524,6 @@ class OptionsPanel:
                 dpg.hide_item(popup_id)
             if not dpg.is_item_shown(popup_id):
                 dpg.show_item(popup_id)
-        
-        # print(f'OptionsPanel Message: {dpg.get_item_alias(popup_id)}, {dpg.get_item_pos(popup_id)}')
 
   
     def set_increment_value(self, sender, app_data, user_data):
@@ -494,7 +542,7 @@ class OptionsPanel:
         # print(f'OptionsPanel Message: Setting image index {sender}: \n\tUpdated Index: (0, {app_data - 1})\n\tPrevious Index: {user_data}')
         # This needs to be done here to ensure the correct information is reflected 
         # when we send the orientation and intensity info over in self.update_volume()
-        changed_volumes = self.volume_layer_groups.update_control(**self.get_control_info())
+        changed_volumes = self.VolumeLayerGroups.update_control(**self.get_control_info())
 
         self.update_volume('Update Image Index', None, changed_volumes)
 
@@ -509,7 +557,7 @@ class OptionsPanel:
         # This needs to be done here to ensure the correct information is reflected 
         # when we send the orientation and intensity info over in self.update_volume()
         
-        self.volume_layer_groups.update_control(**self.get_control_info())
+        self.VolumeLayerGroups.update_control(**self.get_control_info())
         self.update_volume('Update Frame of Reference', None, None)
 
 
@@ -533,7 +581,7 @@ class OptionsPanel:
                             'pixel_spacing_x': dpg.get_value('pixel_spacing_x_input'),
                             'pixel_spacing_y': dpg.get_value('pixel_spacing_y_input'),
                             'slice_thickness': dpg.get_value('slice_thickness_input'),
-                            'drawlayer_tag': self.draw_window.return_texture_drawlayer_tag(self.draw_window.window_tag)}
+                            'drawlayer_tag': self.DrawWindow.return_texture_drawlayer_tag(self.DrawWindow.window_tag)}
 
         return orientation_info
     
@@ -546,25 +594,25 @@ class OptionsPanel:
                           'window_size': 1.0,
                           'colormap_rescaled': dpg.get_value('rescale_colormap_checkbox'),
                           'colormap_scale_type': dpg.get_value('colormap_scale_combo'),
-                          'colormap_scale_tag': self.draw_window.return_colormap_tag(self.draw_window.window_tag)}
+                          'colormap_scale_tag': self.DrawWindow.return_colormap_tag(self.DrawWindow.window_tag)}
         
         return intensity_info
     
     def get_text_info(self):
-        text_info = {'mouse_pos_text_tag': self.draw_window.return_mouse_pos_texture_info_text_tag(self.draw_window.window_tag),
-                     'crosshair_pos_text_tag': self.draw_window.return_crosshair_pos_texture_info_text_tag(self.draw_window.window_tag)}
+        text_info = {'mouse_pos_text_tag': self.DrawWindow.return_mouse_pos_texture_info_text_tag(self.DrawWindow.window_tag),
+                     'crosshair_pos_text_tag': self.DrawWindow.return_crosshair_pos_texture_info_text_tag(self.DrawWindow.window_tag)}
         return text_info
     
     def add_landmark(self, sender, app_data, user_data):
         #TODO Add mouse landmarking via double click. 
         # Currently only uses spacebar. 
-        self.volume_layer_groups.add_landmark(app_data)
-        self.information_box.add_landmark(*self.volume_layer_groups.get_last_landmark())
+        self.VolumeLayerGroups.add_landmark(app_data)
+        self.InformationBox.add_landmark(*self.VolumeLayerGroups.get_last_landmark())
         
 
     def update_volume(self, sender, app_data, user_data):
 
-        colorbar_config = dpg.get_item_configuration(self.draw_window.return_colormap_tag(self.draw_window.window_tag))
+        colorbar_config = dpg.get_item_configuration(self.DrawWindow.return_colormap_tag(self.DrawWindow.window_tag))
 
         control_info = self.get_control_info()
 
@@ -574,12 +622,12 @@ class OptionsPanel:
 
         text_info = self.get_text_info()
 
-        operation_info = self.image_tools.get_operation_info()
+        operation_info = self.ImageTools.get_operation_info()
 
         # print(f'OptionsPanel Message: ')
         # for key, tag in G.OPTION_TAG_DICT.items():
         #     print(f'\t{f"{key} value":<30}: {dpg.get_value(tag)}')
-        self.volume_layer_groups.update_current_volume(user_data, 
+        self.VolumeLayerGroups.update_current_volume(user_data, 
                                                        control_info,
                                                        orientation_info, 
                                                        intensity_info,
@@ -595,20 +643,20 @@ class OptionsPanel:
             dpg.set_value(G.OPTIONS_DICT[orientation_option_tag]['slider_tag'], 
                           G.OPTIONS_DICT[orientation_option_tag]['default_value'])
             
-        self.volume_layer_groups.get_current_volume().reset_orientation()
+        self.VolumeLayerGroups.get_current_volume().reset_orientation()
         self.update_volume('Reset Volume', None, None)
 
 
     def update_option_values_from_volume(self):
         for control_category in ['orientation', 'intensity']:
-            for control_list in getattr(self.volume_layer_groups.get_current_volume(), 
+            for control_list in getattr(self.VolumeLayerGroups.get_current_volume(), 
                                         f'{control_category}_control_list'):
                 for control_option_name in control_list:
                     option_tag = G.OPTION_TAG_DICT[control_option_name]
                     if control_category == 'orientation':
-                        option_value = self.volume_layer_groups.get_current_volume().get_orientation_value(control_option_name, modifier = 'current_value')
+                        option_value = self.VolumeLayerGroups.get_current_volume().get_orientation_value(control_option_name, modifier = 'current_value')
                     elif control_category == 'intensity':
-                        option_value = self.volume_layer_groups.get_current_volume().get_orientation_value(control_option_name, modifier = 'current_value')
+                        option_value = self.VolumeLayerGroups.get_current_volume().get_orientation_value(control_option_name, modifier = 'current_value')
                     else:
                         print(f'OptionsPanel Message: \n\tupdate_option_values_from_volume: Control category {control_category} not recognized')
                         return
@@ -618,19 +666,20 @@ class OptionsPanel:
                     # Set slider option 
                     dpg.set_value(option_tag, 
                                   option_value)
+                    
 
     def update_option_values(self, sender:str):
         control_category = sender.split(f'_{G.GROUP_LAYER_CONTROL_BUTTON}')[0]
-        control_list = getattr(self.volume_layer_groups.get_current_volume(), 
+        control_list = getattr(self.VolumeLayerGroups.get_current_volume(), 
                                f'{control_category}_control_list')
         for control_option_name in control_list: 
             option_tag = G.OPTION_TAG_DICT[control_option_name]
             if dpg.get_item_label(sender) == 'Group': # Indicates we've changed from Layer -> Group, so retrieve info from group_info
-                control_option = getattr(getattr(self.volume_layer_groups.get_current_group(), 
+                control_option = getattr(getattr(self.VolumeLayerGroups.get_current_group(), 
                                                  control_category), 
                                                  control_option_name)
             else:# Indicates we've changed from Group -> Layer, so retrieve info from volume_info
-                control_option = getattr(getattr(self.volume_layer_groups.get_current_volume(), 
+                control_option = getattr(getattr(self.VolumeLayerGroups.get_current_volume(), 
                                                  control_category), 
                                                  control_option_name)
             dpg.set_value(f'{option_tag}_current_value', 
@@ -640,7 +689,7 @@ class OptionsPanel:
 
 
     def mouse_and_keyboard_navigation(self, sender, app_data, user_data):
-        if self.volume_layer_groups.active:
+        if self.VolumeLayerGroups.active:
 
             if app_data not in self.mouse_and_keyboard_controls.keys():
                 return
@@ -760,26 +809,26 @@ class OptionsPanel:
 
     def clamp_option_value(self, option_key, new_value):
         print(f'OptionPanel Message: clamp_option_value: {option_key = }, {new_value = }')
-        if option_key in self.volume_layer_groups.get_current_volume().orientation_control_list:
-            min_value = getattr(self.volume_layer_groups.get_current_volume().orientation, 
+        if option_key in self.VolumeLayerGroups.get_current_volume().orientation_control_list:
+            min_value = getattr(self.VolumeLayerGroups.get_current_volume().orientation, 
                                 option_key).limit_low
-            max_value = getattr(self.volume_layer_groups.get_current_volume().orientation, 
+            max_value = getattr(self.VolumeLayerGroups.get_current_volume().orientation, 
                                 option_key).limit_high
                     
-        elif option_key in self.volume_layer_groups.get_current_volume().intensity_control_list:
-            min_value = getattr(self.volume_layer_groups.get_current_volume().intensity, 
+        elif option_key in self.VolumeLayerGroups.get_current_volume().intensity_control_list:
+            min_value = getattr(self.VolumeLayerGroups.get_current_volume().intensity, 
                                 option_key).limit_low
-            max_value = getattr(self.volume_layer_groups.get_current_volume().intensity, 
+            max_value = getattr(self.VolumeLayerGroups.get_current_volume().intensity, 
                                 option_key).limit_high
         
         elif option_key == 'img_index_slider':
             min_value = 1
-            max_value = self.volume_layer_groups.get_current_group().n_volumes
+            max_value = self.VolumeLayerGroups.get_current_group().n_volumes
 
-        if new_value < min_value:
+        if new_value <= min_value:
             clipped_new_value = min_value
                     
-        elif new_value > max_value:
+        elif new_value >= max_value:
             clipped_new_value = max_value
 
         else:
@@ -847,6 +896,19 @@ class OptionsPanel:
         
         for handler in self.handler_list:
             dpg.hide_item(handler)
+
+
+    def reset_all(self):
+        print(f'OptionsPanel Message: ')
+        for (tag, default_value) in self.reset_list:
+            print(f'\tResetting {tag}')
+            dpg.set_value(tag, default_value)
+
+
+    def close_image(self):
+        self.reset_all()
+        self.disable_options()
+
 
     def _cleanup_(self):
         pass
@@ -1083,7 +1145,7 @@ class ImageTools:
 
     def update_landmark_colors(self):
         # print(f'ImageTools Message: {dpg.get_value("landmark_color_picker") = }, {dpg.get_value("landmark_opacity_factor_input") = }')
-        self.volume_layer_groups.update_landmark_colors()
+        self.VolumeLayerGroups.update_landmark_colors()
 
     def update_landmark_radius(self, sender, app_data):
         self.landmark_radius = 1*app_data
@@ -1118,7 +1180,7 @@ class ImageTools:
 
     def update_operation(self):
         self.options_panel.update_volume(None, None, False)
-        # self.volume_layer_groups.update_operation(self.get_operation_info())
+        # self.VolumeLayerGroups.update_operation(self.get_operation_info())
 
 
     def update_selector_lists(self, volume_names: list[str]):
@@ -1145,8 +1207,18 @@ class ImageTools:
             print(f'ImageTools Message: {image_tool_tag} disabled')
             dpg.disable_item(image_tool_tag)
 
+
+    def reset_all(self):
+        print(f'OptionsPanel Message: ')
+        for tag in self.reset_list:
+            print(f'\tResetting {tag}')
+            dpg.set_value(tag, dpg.get_item_configuration(tag)['default_value'])
+
+
     def close_image(self):
+        self.reset_all()
         self.disable_options()
+
 
     def _cleanup_(self):
         pass

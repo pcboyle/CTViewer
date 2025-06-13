@@ -41,8 +41,7 @@ def get_gpu_information():
         for device_n in range(cp.cuda.runtime.getDeviceCount()):
             device_properties = cp.cuda.runtime.getDeviceProperties(device_n)
             gpu_device_info[f'{device_n}'] = {'name': device_properties['name'].decode(),
-                                              'totalGlobalMem': device_properties['totalGlobalMem'] / 1.074e9,
-                                              }
+                                              'totalGlobalMem': device_properties['totalGlobalMem'] / 1.074e9}
     except:
         pass
 

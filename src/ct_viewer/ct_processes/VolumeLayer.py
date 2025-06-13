@@ -75,7 +75,6 @@ class VolumeLayer(object):
         self.current_volume: bool = False
         self.info_box = None
         
-        
         self.layer_control = []
         self.group_control = [control_option for control_option in self.control_list]
         
@@ -198,8 +197,11 @@ class VolumeLayer(object):
         if file_path == None:
             file_path = self.file.parent.joinpath(f'{prefix}-{self.name}Landmarks.{extension}')
 
+        volume_affine = self.ctvolume.affine
+
         self.landmarks.save_landmarks(file_path, 
                                       self.name,
+                                      volume_affine,
                                       extension)
 
 
@@ -213,7 +215,7 @@ class VolumeLayer(object):
                      draw_layer: str,
                      color: tuple[int] = dpg.get_value('landmark_color_picker'),
                      size: float = 5.0, 
-                     mean_geometry: float = 0.0, 
+                     geometry: np.ndarray = np.ones(3), 
                      landmark_patch: np.ndarray = np.zeros((11, 11), dtype = np.float32),
                      patch_size:int = 11,
                      show_landmark: bool = True):
@@ -229,7 +231,7 @@ class VolumeLayer(object):
                                     draw_layer,
                                     color = color, 
                                     size = size, 
-                                    mean_geometry = mean_geometry,
+                                    geometry = geometry,
                                     landmark_patch = landmark_patch, 
                                     patch_size = patch_size,
                                     show_landmark = show_landmark)
@@ -297,6 +299,7 @@ class VolumeLayer(object):
     def update_all(self, 
                    orientation_info: dict, 
                    intensity_info: dict,
+                   changed_volume: bool,
                    operation_instance: VolumeOperations.VolumeOperations):
         
         for key, value in orientation_info.items():
@@ -318,6 +321,7 @@ class VolumeLayer(object):
                                   origin_vector = self.get_crosshair_coords(), #self.get_orientation_value('origin_vector', 'current_value').reshape((3, )).get(),
                                   quaternion = self.get_orientation_value('quaternion', 'current_value'),
                                   geometry_vector = self.get_orientation_value('geometry_vector', 'current_value').reshape((3, )).get())
+
 
     def set_control_options(self, 
                             option_class:str, 
@@ -347,6 +351,8 @@ class VolumeLayer(object):
                                    min_value = control_option.limit_low, 
                                    max_value = control_option.limit_high, 
                                    default_value = control_option.default_value)
+                
+            print(f'{option_tag:<25}: {control_option_name}: {control_option.current_value}')
             dpg.set_value(f'{option_tag}_current_value', 
                           control_option.current_value)
             dpg.set_value(f'{option_tag}_step_value',
@@ -1127,10 +1133,12 @@ class VolumeLayerGroup(object):
     def update_current_volume(self,
                               orientation_info: dict, 
                               intensity_info: dict,
+                              changed_volume: bool,
                               operation_instance: VolumeOperations.VolumeOperations):
         
         self.current_volume.update_all(orientation_info, 
                                        intensity_info,
+                                       changed_volume,
                                        operation_instance)
         
     def add_landmark(self, 
@@ -1143,7 +1151,7 @@ class VolumeLayerGroup(object):
                      draw_layer: str,
                      color: tuple[int] = dpg.get_value('landmark_color_picker'),
                      size: float = 5.0, 
-                     mean_geometry: float = 1.0,
+                     geometry: np.ndarray = np.ones(3, dtype = np.float32),
                      landmark_patch: np.ndarray = np.zeros((11, 11), dtype = np.float32),
                      patch_size = 11,
                      show_landmark: bool = True):
@@ -1157,7 +1165,7 @@ class VolumeLayerGroup(object):
                                          draw_layer,
                                          color = color,
                                          size = size,
-                                         mean_geometry = mean_geometry,
+                                         geometry = geometry,
                                          landmark_patch = landmark_patch,
                                          patch_size = patch_size,
                                          show_landmark = show_landmark)
@@ -1258,8 +1266,15 @@ class VolumeLayerGroups(object):
     def get_current_volume_index(self) -> int:
         pass
 
+    def set_options_panel(self, **options_panel_info):
+        """
+        
+        """
+        pass
+
     def set_control_options(self, 
                             changing_volumes: bool = False) -> None:
+        # self.set_options_panel()
         self.get_current_volume().set_control_options('orientation', changing_volumes = changing_volumes)
         self.get_current_volume().set_control_options('intensity', changing_volumes = changing_volumes)
 
@@ -1270,9 +1285,9 @@ class VolumeLayerGroups(object):
         self.get_current_volume().hide_landmarks()
         self.set_current_volume_by_index(0, img_index)
 
-        self.get_current_volume().set_control_options('orientation', changing_volumes = True)
-        self.get_current_volume().set_control_options('intensity', changing_volumes = True)
-        # self.get_current_group().set_
+        self.set_control_options(changing_volumes = True)
+        # self.get_current_volume().set_control_options('orientation', changing_volumes = True)
+        # self.get_current_volume().set_control_options('intensity', changing_volumes = True)
         self.get_current_volume().show_landmarks()
 
         dpg.set_item_label(f'orientation_group_layer_control_button', self.get_current_volume().orientation_control)
@@ -1299,6 +1314,7 @@ class VolumeLayerGroups(object):
                        intensity_control: str = 'Group',
                        update_orientation_group_control: bool = False,
                        update_intensity_group_control: bool = False) -> bool:
+        
         changed_volume = False
         with dpg.mutex():
             if self.current_group_and_volume != (0, img_index):
@@ -1334,11 +1350,14 @@ class VolumeLayerGroups(object):
         We already ensured that the OptionPanel reflects the current volume in update_control, which
         handles switching between volumes and between Group-Layer control. 
         """
-        
+        orientation_info['apply_scaling'] = not changed_volume
         # Control update is handled in OptionsPanel.update_image_index and update_frame_of_reference
         self.update_operation(operation_info)
+        print(f'VolumeLayerGroups Message:')
+        print(f'\t{orientation_info = }')
         self.get_current_group().update_current_volume(orientation_info,
                                                        intensity_info,
+                                                       changed_volume,
                                                        self.volume_operations)
         
         crosshair_draw_pos = self.get_crosshair_drawing_pos()
@@ -1483,9 +1502,9 @@ class VolumeLayerGroups(object):
         viewplane_norm = self.get_current_orientation().norm_vector.current_value.get().reshape((3, ))
         draw_layer = self.get_current_group().landmark_draw_layer_tag
         color = dpg.get_value('landmark_color_picker')
-        mean_geometry = np.mean(self.get_current_orientation().geometry_vector.current_value.get().reshape((3, )))
+        geometry = self.get_current_orientation().geometry_vector.current_value.get().reshape((3, ))
         size = 5.0
-        patch_width = int(10 * mean_geometry)
+        patch_width = int(10 * np.mean(geometry))
         print('VolumeLayerGroups Message: self.get_texture_patch')
         print(f'\t{patch_width = }')
         patch_x = [int(drawing_coords[0] - patch_width), int(drawing_coords[0] + patch_width + 1)]
@@ -1508,7 +1527,7 @@ class VolumeLayerGroups(object):
                                               draw_layer,
                                               color = color, 
                                               size = size, 
-                                              mean_geometry = mean_geometry, 
+                                              geometry = geometry, 
                                               landmark_patch = landmark_patch,
                                               patch_size = 2*patch_width + 1,
                                               show_landmark = show_landmark)

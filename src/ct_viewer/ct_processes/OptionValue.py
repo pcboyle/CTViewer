@@ -265,47 +265,6 @@ class OrientationInfo(object):
         self.drawlayer = StringValue(default_string = default_drawlayer_tag)
 
 
-    def calculate_point_projection_on_viewplane(self, point): #need to invert y
-        """
-        
-        This calculates the distance and projection components from the current view plane to an arbitrary point. 
-
-        It uses the center value of the view plane to calculate distance: 
-
-        center_point = (G.TEXTURE_CENTER * G.TEXTURE_DIM) + G.TEXTURE_CENTER * (G.TEXTURE_DIM%2)
-        plane_point = 1.0 * self.view_plane.current_value[:,center_point]
-
-        """
-        center_point = (G.TEXTURE_CENTER * G.TEXTURE_DIM) + G.TEXTURE_CENTER * (G.TEXTURE_DIM%2)
-        plane_point = 1.0 * self.view_plane.current_value[:,center_point]
-
-        plane_to_point = np_to_cp(point) - plane_point
-        parallel_factor = mode_function(np.dot)(plane_to_point, 
-                                                np_to_cp(self.norm_vector.current_value.squeeze())) / mode_function(np.dot)(np_to_cp(self.norm_vector.current_value.squeeze()), 
-                                                                                                                            np_to_cp(self.norm_vector.current_value.squeeze()))
-        
-        parallel_factor += 0.0
-        parallel_proj = parallel_factor*(np_to_cp(self.norm_vector.current_value.squeeze()) + 0.0) + 0.0
-        parallel_dist = cp.linalg.norm(parallel_proj).round(decimals = 4)
-
-        orthogonal_proj = plane_to_point - parallel_proj
-        orthogonal_dist = cp.linalg.norm(orthogonal_proj).round(decimals = 4)
-        point_proj_plane = plane_point + orthogonal_proj
-
-        # TODO: Initialize these at image load!
-        x_basis = np_to_cp(np.array([0, 0, 1]))
-        y_basis = np_to_cp(np.array([0, -1, 0]))
-        
-        viewport_x = mode_function(np.dot)(qtn_rotate(self.quaternion.current_value, x_basis), orthogonal_proj)
-        viewport_y = mode_function(np.dot)(qtn_rotate(self.quaternion.current_value, y_basis), orthogonal_proj)
-
-        parallel_dist = mode_function(np.round)(parallel_dist, decimals = 4)
-        parallel_proj = parallel_proj.round(decimals = 4)
-        orthogonal_proj = orthogonal_proj.round(decimals = 4)
-
-        return (parallel_dist, parallel_proj, orthogonal_proj, point_proj_plane, viewport_x, viewport_y)
-
-
     def get_volume_coords(self, 
                           coord_x:int, 
                           coord_y:int):
@@ -373,6 +332,7 @@ class OrientationInfo(object):
                                  slice_thickness = slice_thickness)
             self.update_geometry_vector()
             self.update_norm(norm = norm)
+            # We apply scaling here because we should be getting the positions in mm space, not in texture space. 
             self.update_origin(origin_x = origin_x,
                                origin_y = origin_y,
                                origin_z = origin_z,
@@ -389,9 +349,17 @@ class OrientationInfo(object):
                                       apply_scaling = False)
             self.update_view_plane()
 
-            # Set Zoom Plane Zoom.
+            # Set Zoom Plane and origin values zoom.
             self.view_plane.set_current_value(self.view_plane.current_value 
                                               / self.geometry_vector.current_value)
+            
+            # We reset scaling here so that the origin_x, origin_y, and origin_z values reflect correct the OptionsPanel values. 
+            self.origin_x.set_current_value(self.origin_x.current_value 
+                                            / self.geometry_vector.current_value.reshape((3, )).get()[1])
+            self.origin_y.set_current_value(self.origin_y.current_value 
+                                            / self.geometry_vector.current_value.reshape((3, )).get()[0])
+            self.origin_z.set_current_value(self.origin_z.current_value 
+                                            / self.geometry_vector.current_value.reshape((3, )).get()[2])
 
             self.update_drawlayer(drawlayer_tag)
 
@@ -656,6 +624,15 @@ class OrientationInfo(object):
         print(f'{self.quaternion.current_value = }')
         print(f'{self.quaternion.previous_value = }')
         print(f'{self.quaternion.difference_value = }')
+        print(f'{self.origin_x.current_value = }')
+        print(f'{self.origin_x.previous_value = }')
+        print(f'{self.origin_x.difference_value = }')
+        print(f'{self.origin_y.current_value = }')
+        print(f'{self.origin_y.previous_value = }')
+        print(f'{self.origin_y.difference_value = }')
+        print(f'{self.origin_z.current_value = }')
+        print(f'{self.origin_z.previous_value = }')
+        print(f'{self.origin_z.difference_value = }')
         print(f'{self.geometry_vector.pretty_print(modifier = "current_value") = }')
         print(f'{self.geometry_vector.pretty_print(modifier = "previous_value") = }')
         print(f'{self.geometry_vector.pretty_print(modifier = "difference_value") = }')

@@ -685,6 +685,10 @@ class FileDialog(object):
                 dpg.configure_item(self.file_dialog_window, modal = True)
                 dpg.show_item(self.file_dialog_window)
 
+    
+    def load_landmarks(self, volume_file_id:str, volume_id: str, landmark_file: Path):
+        self.load_file_dict[volume_file_id][volume_id]
+
 
     def load_selected_volumes(self):
         indent, leaves = self.chosen_table_user_data
@@ -1164,7 +1168,8 @@ class FileParser(object):
                            'hdf5': self.parse_hdf5_file,
                            'dicom': self.parse_dicom_files,
                            'dicom_dir': self.parse_dicom_dir,
-                           'nifti': self.parse_nifti_file}
+                           'nifti': self.parse_nifti_file,
+                           'landmark': self.parse_landmark_file}
         
         self.matfile_version_dict = {'(0, 0)': ['v4', 'mat'],
                                      '(1, 0)': ['v5', 'mat'],
@@ -1328,6 +1333,8 @@ class FileParser(object):
         if type(file_content_dict) == type(dict()):
             return file_content_dict
 
+    def parse_landmark_file(self, file_info_object, file_content_dict):
+        pass
 
 class DataLoader(object):
     """
@@ -1380,8 +1387,8 @@ class DataLoader(object):
         dpg.configure_item(G.OPTIONS_DICT['img_index_slider']['slider_tag'], 
                             max_value = VolumeLayerGroups.get_group_by_name('AllVolumes').n_volumes)
         
-        G.APP.image_tools.update_selector_lists(VolumeLayerGroups.get_current_group().volume_names)
-        G.APP.image_tools.enable_options()
+        G.APP.ImageTools.update_selector_lists(VolumeLayerGroups.get_current_group().volume_names)
+        G.APP.ImageTools.enable_options()
 
         InformationBox.initialize_landmark_tables(VolumeLayerGroups.get_current_group().volume_names)
         

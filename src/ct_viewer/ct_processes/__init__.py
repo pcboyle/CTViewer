@@ -69,7 +69,8 @@ class CTViewer:
                         with dpg.tab(label = 'Navigation', 
                                      tag = G.NAVIGATION_TAB_TAG):
                             with dpg.group(tag = 'OptionsPanel_ImageTools_Group'):
-                                self.OptionsPanel = OptionsPanel.OptionsPanel(debug = True)
+                                self.OptionsPanel = OptionsPanel.OptionsPanel(debug = False)
+                                self.OptionsPanel.create_options_panel()
                                 self.ImageTools = ImageTools.ImageTools(self.VolumeLayerGroups)
 
                 with dpg.child_window(tag = 'MainViewTexture_Window',
@@ -96,10 +97,10 @@ class CTViewer:
         self.OptionsPanel.set_info_box(self.InformationBox)
         self.OptionsPanel.set_image_tools(self.ImageTools)
         
-        self.FileDialog.initialize(volume_layer_groups = self.VolumeLayerGroups,
-                                   draw_window = self.DrawWindow,
-                                   options_panel = self.OptionsPanel,
-                                   information_box = self.InformationBox,
+        self.FileDialog.initialize(VolumeLayerGroups = self.VolumeLayerGroups,
+                                   DrawWindow = self.DrawWindow,
+                                   OptionsPanel = self.OptionsPanel,
+                                   InformationBox = self.InformationBox,
                                    debug = G.DEBUG_MODE)
         
         dpg.add_item_hover_handler(parent = self.item_hovered_registry, 
@@ -113,12 +114,12 @@ class CTViewer:
                                   tag = 'mouse_and_keyboard_navigation_handler', 
                                   parent = self.handler_registry)
         
-        self.MenuBar.set_classes(self, 
-                                  self.VolumeLayerGroups,
+        self.MenuBar.set_classes(self.VolumeLayerGroups,
                                   self.InformationBox,
                                   self.OptionsPanel,
                                   self.FileDialog,
-                                  self.ImageTools)
+                                  self.ImageTools,
+                                  self.NodeEditor)
 
     def print_current_tab(self, sender, app_data):
         print('Tab clicked!')

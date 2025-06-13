@@ -135,7 +135,7 @@ class MenuBar:
             dpg.set_value('InfoBoxTab_layers_text', '')
             
             self.InformationBox.close_image()
-            self.OptionsPanel.disable_options()
+            self.OptionsPanel.close_image()
             self.ImageTools.disable_options()
             dpg.configure_item('save_landmarks_button', enabled = False)
 
@@ -270,7 +270,7 @@ class MenuBar:
 
     def open_help(self, sender, app_data, user_data):
         if user_data:
-            dpg.show_item('MenuBar_Help_Window')
+            dpg.show_item('MenuBar_HelpWindow')
             return
 
         else: 
@@ -285,6 +285,8 @@ class MenuBar:
                         show = True):
             dpg.add_text(self.get_menubar_text(),
                          wrap = 795)
+            
+            dpg.set_item_user_data(sender, True)
 
 
     def update_config(self, sender, app_data, user_data):
