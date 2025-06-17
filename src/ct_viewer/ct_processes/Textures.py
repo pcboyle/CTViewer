@@ -1,7 +1,6 @@
 from .Globals import *
 from . import CTVolume
 
-
 class Texture(object):
     """
     This class holds the actual texture information for each VolumeLayer object. 
@@ -106,11 +105,12 @@ class Texture(object):
                                             patch_y[0]:patch_y[1]]
 
         patch_length = texture_patch.size
+        patch_shape = texture_patch.shape
 
         colorized_texture = np.zeros(patch_length*4)
         
         print('Texture Message: colorize_texture_patch')
-        print(f'\t{patch_length = }')
+        print(f'\t{patch_length = }\n\t{patch_shape = }')
 
         colorized_texture[0::4] = Texture.mode_return_type(Texture.cp_to_np(red_interp(texture_patch.flatten()[:])), 'float32')[:]
         colorized_texture[1::4] = Texture.mode_return_type(Texture.cp_to_np(green_interp(texture_patch.flatten()[:])), 'float32')[:]

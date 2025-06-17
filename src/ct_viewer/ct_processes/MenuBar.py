@@ -11,6 +11,7 @@ class MenuBar:
         self.InformationBox = None
         self.FileDialog = None
         self.NodeEditor = None
+        self.classes_assigned = False
 
         with dpg.menu_bar(tag = 'MenuBar'):
             with dpg.menu(label = 'File', tag = 'MenuBarFile'):
@@ -31,6 +32,14 @@ class MenuBar:
                 dpg.add_menu_item(label = 'New Group',
                                   tag = 'MenuBarLayers_create_new_group', 
                                   callback = self.create_new_group)
+                
+            with dpg.menu(label = 'Landmarks', tag = 'MenuBarLandmarks'):
+                dpg.add_menu_item(label = 'Save Landmarks',
+                                  tag = 'MenuBarLandmarks_save_landmarks', 
+                                  callback = self.save_landmarks)
+                dpg.add_menu_item(label = 'Load Landmarks',
+                                  tag = 'MenuBarLandmarks_load_landmarks', 
+                                  callback = self.load_landmarks)
             
             with dpg.menu(label = 'Analysis', tag = 'MenuBarAnalysis'):
                 dpg.add_menu_item(label = 'Open Analysis Window', 
@@ -127,6 +136,7 @@ class MenuBar:
         self.FileDialog = FileDialog
         self.ImageTools = ImageTools
         self.NodeEditor = NodeEditor
+        self.classes_assigned = True
 
     def close_all(self):
         print('MenuBar Message: Closing All Volumes')
@@ -137,7 +147,7 @@ class MenuBar:
             self.InformationBox.close_image()
             self.OptionsPanel.close_image()
             self.ImageTools.disable_options()
-            dpg.configure_item('save_landmarks_button', enabled = False)
+            # dpg.configure_item('save_landmarks_button', enabled = False)
 
             self.VolumeLayerGroups.remove_all_groups()
 
@@ -150,13 +160,34 @@ class MenuBar:
             cp.get_default_pinned_memory_pool().free_all_blocks()
             print(f'MenuBar Message: {G.FILE_LOADED = }')
     
+
     def exit_app(self):
         print('MenuBar Message: Exiting App')
         dpg.stop_dearpygui()
 
+
     def create_new_group(self):
         pass
     
+
+    def save_landmarks(self):
+        if self.classes_assigned:
+            self.VolumeLayerGroups.save_landmarks()
+
+
+    def load_landmarks(self):
+        if self.classes_assigned:
+            print('MenuBar Message: Loading Landmarks.')
+            loaded_landmarks = self.VolumeLayerGroups.load_landmarks(self.OptionsPanel.get_orientation_info(),
+                                                                     self.OptionsPanel.get_intensity_info(),
+                                                                     self.OptionsPanel.get_control_info(),
+                                                                     self.OptionsPanel.get_text_info(),
+                                                                     self.ImageTools.get_operation_info())
+            print('MenuBar Message: Adding loaded_landmarks.')
+            for landmark_info in loaded_landmarks: 
+                print(f'\t{landmark_info = }')
+                self.InformationBox.add_landmark(*landmark_info)
+
     def open_analysis_window(self):
         if G.FILE_LOADED:
             pass

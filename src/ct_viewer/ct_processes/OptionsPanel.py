@@ -474,6 +474,11 @@ class OptionsPanel:
                                     DrawWindow: NewMainView.MainView):
         
         self.VolumeLayerGroups = VolumeLayerGroups
+        self.VolumeLayerGroups.get_orientation_info = self.get_orientation_info
+        self.VolumeLayerGroups.get_intensity_info = self.get_intensity_info
+        self.VolumeLayerGroups.get_control_info = self.get_control_info
+        self.VolumeLayerGroups.get_text_info = self.get_text_info
+
         self.DrawWindow = DrawWindow
 
     def image_mouse_move(self, sender, app_data, user_data):
@@ -606,8 +611,11 @@ class OptionsPanel:
     def add_landmark(self, sender, app_data, user_data):
         #TODO Add mouse landmarking via double click. 
         # Currently only uses spacebar. 
+        print('OptionsPanel Message: add_landmark')
         self.VolumeLayerGroups.add_landmark(app_data)
+        print(f'\tVolumeLayerGroups.add_landmark(app_data)')
         self.InformationBox.add_landmark(*self.VolumeLayerGroups.get_last_landmark())
+        print(f'\tInformationBox.add_landmark(*self.VolumeLayerGroups.get_last_landmark())')
         
 
     def update_volume(self, sender, app_data, user_data):
@@ -810,15 +818,15 @@ class OptionsPanel:
     def clamp_option_value(self, option_key, new_value):
         print(f'OptionPanel Message: clamp_option_value: {option_key = }, {new_value = }')
         if option_key in self.VolumeLayerGroups.get_current_volume().orientation_control_list:
-            min_value = getattr(self.VolumeLayerGroups.get_current_volume().orientation, 
+            min_value = getattr(self.VolumeLayerGroups.get_current_volume().Orientation, 
                                 option_key).limit_low
-            max_value = getattr(self.VolumeLayerGroups.get_current_volume().orientation, 
+            max_value = getattr(self.VolumeLayerGroups.get_current_volume().Orientation, 
                                 option_key).limit_high
                     
         elif option_key in self.VolumeLayerGroups.get_current_volume().intensity_control_list:
-            min_value = getattr(self.VolumeLayerGroups.get_current_volume().intensity, 
+            min_value = getattr(self.VolumeLayerGroups.get_current_volume().Intensity, 
                                 option_key).limit_low
-            max_value = getattr(self.VolumeLayerGroups.get_current_volume().intensity, 
+            max_value = getattr(self.VolumeLayerGroups.get_current_volume().Intensity, 
                                 option_key).limit_high
         
         elif option_key == 'img_index_slider':

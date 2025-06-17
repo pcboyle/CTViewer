@@ -1374,8 +1374,8 @@ class DataLoader(object):
 
                 InformationBox.load_image(VolumeLayerGroups)
 
-                dpg.enable_item('save_landmarks_button')
-                dpg.enable_item('load_landmarks_button')
+                # dpg.enable_item('save_landmarks_button')
+                # dpg.enable_item('load_landmarks_button')
 
                 VolumeLayerGroups.set_active()
 
@@ -1400,14 +1400,14 @@ class DataLoader(object):
         VolumeLayerGroups.update_histogram('volume')
         VolumeLayerGroups.update_histogram('texture')
 
-        affine = VolumeLayerGroups.get_volume_by_index(0, 0).ctvolume.affine
+        affine = VolumeLayerGroups.get_volume_by_index(0, 0).CTVolume.affine
         layers_tab_text = f'{VolumeLayerGroups.get_volume_by_index(0, 0).name}'
 
         for row in affine:
             layers_tab_text = f'{layers_tab_text}\n\t{row}'
 
         for vol_index in range(1, VolumeLayerGroups.get_group_by_index(0).n_volumes):
-            affine = VolumeLayerGroups.get_volume_by_index(0, vol_index).ctvolume.affine
+            affine = VolumeLayerGroups.get_volume_by_index(0, vol_index).CTVolume.affine
             vol_name = VolumeLayerGroups.get_volume_by_index(0, vol_index).name
             layers_tab_text = f'{layers_tab_text}\n{vol_name}'
             

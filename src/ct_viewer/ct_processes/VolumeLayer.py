@@ -43,14 +43,13 @@ class VolumeLayer(object):
             cp.cuda.Device(G.DEVICE).use()
 
         # This let's us use the group when necessary
-        self.group:VolumeLayerGroup = group
+        self.Group:VolumeLayerGroup = group
         # Store the CTVolume itself here
-        self.ctvolume:CTVolume.CTVolume = ctvolume
-        # Get pixel_steps for use in interpolation
+        self.CTVolume:CTVolume.CTVolume = ctvolume
         self.pixel_steps:list[float,float,float] = [1.0*p_dim for p_dim in ctvolume.pixel_steps]
-        self.name:str = self.ctvolume.name if volume_name is not None else volume_name
-        self.file:Path = self.ctvolume.file
-        self.group_name:str = self.group.group_name
+        self.name:str = self.CTVolume.name if volume_name is not None else volume_name
+        self.file:Path = self.CTVolume.file
+        self.group_name:str = self.Group.group_name
         self.index: int = index
 
         self.intensity_limits = [default_colormap_info['min_intensity']['default_limits'],
@@ -78,59 +77,64 @@ class VolumeLayer(object):
         self.layer_control = []
         self.group_control = [control_option for control_option in self.control_list]
         
-        self.orientation: OptionValue.OrientationInfo = OptionValue.OrientationInfo(tag = f'{self.name}|VolumeLayer|Orientation',
+        self.Orientation: OptionValue.OrientationInfo = OptionValue.OrientationInfo(tag = f'{self.name}|VolumeLayer|Orientation',
                                                                                     default_origin = default_origin,
                                                                                     default_angle = default_angle, 
                                                                                     default_norm = default_norm,
-                                                                                    default_norm_sign = self.ctvolume.slice_direction,
+                                                                                    default_norm_sign = self.CTVolume.slice_direction,
                                                                                     default_quaternion = default_quaternion, 
                                                                                     default_geometry = [1.0, 1.0, 1.0],
                                                                                     default_limits_origin = default_limits_origin,
                                                                                     default_limits_norm = default_limits_norm,
                                                                                     default_limits_geometry = [0.10, 50.0],
-                                                                                    default_texture_dim = G.TEXTURE_DIM, #self.ctvolume.texture_dim,
-                                                                                    default_texture_center = G.TEXTURE_CENTER, #self.ctvolume.texture_center)
-                                                                                    voxel_start = self.ctvolume.physical_start,
-                                                                                    voxel_center = self.ctvolume.physical_center,
-                                                                                    voxel_steps = self.ctvolume.physical_steps,
+                                                                                    default_texture_dim = G.TEXTURE_DIM, #self.CTVolume.texture_dim,
+                                                                                    default_texture_center = G.TEXTURE_CENTER, #self.CTVolume.texture_center)
+                                                                                    voxel_start = self.CTVolume.physical_start,
+                                                                                    voxel_center = self.CTVolume.physical_center,
+                                                                                    voxel_steps = self.CTVolume.physical_steps,
                                                                                     default_drawlayer_tag = default_drawlayer_tag)
 
-        self.intensity: OptionValue.IntensityInfo = OptionValue.IntensityInfo(tag = f'{self.name}|VolumeLayer|Intensity',
+        self.Intensity: OptionValue.IntensityInfo = OptionValue.IntensityInfo(tag = f'{self.name}|VolumeLayer|Intensity',
                                                                               default_colormap_info = default_colormap_info)
         
-        self.volume_histogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
-        self.texture_histogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
+        self.VolumeHistogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
+        self.TextureHistogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
 
-        self.view_plane: OptionValue.ViewPlane = self.orientation.view_plane
-        self.interpolator: RegularGridInterpolator = self.ctvolume.interpolator
-        self.mask_interpolator = self.ctvolume.mask_interpolator
-        self.volume_center = self.ctvolume.volume_center
-        self.volume_shape = self.ctvolume.shape
-        self.texture_dim = G.TEXTURE_DIM # self.ctvolume.texture_dim
+        self.ViewPlane: OptionValue.ViewPlane = self.Orientation.view_plane
+        self.interpolator: RegularGridInterpolator = self.CTVolume.interpolator
+        self.mask_interpolator = self.CTVolume.mask_interpolator
+        self.volume_center = self.CTVolume.volume_center
+        self.volume_shape = self.CTVolume.shape
+        self.texture_dim = G.TEXTURE_DIM # self.CTVolume.texture_dim
         self.texture_center = G.TEXTURE_CENTER
 
-        self.colormap = self.intensity.colormap
-        self.colormap_name = self.intensity.colormap_name
-        self.colormap_string = self.intensity.get_colormap_string()
-        self.colormap_reversed = self.intensity.colormap_reversed
-        self.colormap_log = self.intensity.colormap_log
+        self.colormap = self.Intensity.colormap
+        self.colormap_name = self.Intensity.colormap_name
+        self.colormap_string = self.Intensity.get_colormap_string()
+        self.colormap_reversed = self.Intensity.colormap_reversed
+        self.colormap_log = self.Intensity.colormap_log
 
-        self.landmarks:Landmarks.Landmarks = Landmarks.Landmarks(self.name,
+        self.Landmarks:Landmarks.Landmarks = Landmarks.Landmarks(self.name,
+                                                                 1.0 * self.CTVolume.physical_center,
+                                                                 1.0 * self.CTVolume.physical_start,
+                                                                 1.0 * self.CTVolume.physical_steps,
                                                                  texture_center = self.texture_center,
+                                                                 group_name = self.group_name,
+                                                                 volume_file = self.file,
                                                                  max_landmarks = 2**16)
 
-        self.texture: Textures.Texture = Textures.Texture(self.ctvolume, 
+        self.Texture: Textures.Texture = Textures.Texture(self.CTVolume, 
                                                           create_tag('NewMainView', 
                                                                      'DrawList', 
                                                                      'TextureDrawList'))
 
-        self.interpolate_texture(self.texture.texture_content, 
+        self.interpolate_texture(self.Texture.texture_content, 
                                  self.get_orientation().view_plane.get_voxel_view(),
                                  dpg.get_value('interpolation_combo_box'))
         self.window_and_normalize_texture()
-        self.texture.update_draw_image()
+        self.Texture.update_draw_image()
         self.assign_texture()
-        self.texture.create_static_texture()
+        self.Texture.create_static_texture()
 
 
     def get_drawing_pos_texture_value(self, 
@@ -138,27 +142,26 @@ class VolumeLayer(object):
                                       draw_y: int,
                                       decimals = 3) -> float:
         
-        return np.round(self.texture.get_texture_value_at_pos(draw_x, draw_y), decimals = decimals)
+        return np.round(self.Texture.get_texture_value_at_pos(draw_x, draw_y), decimals = decimals)
     
+    def get_physical_voxel_coords(self, 
+                                  draw_x: int,
+                                  draw_y: int) -> np.ndarray:
+    
+        physical_coords = self.get_physical_pos_coords(draw_x, draw_y)
+        physical_voxel_coords = (physical_coords - self.CTVolume.physical_start) / self.CTVolume.pixel_steps
+        
+        return physical_voxel_coords.round(2)
+
 
     def get_physical_pos_coords(self, 
                                 draw_x: int, 
                                 draw_y: int) -> np.ndarray:
         
         image_pos_coords = self.get_drawing_pos_coords(draw_x, draw_y)
-        physical_coords = image_pos_coords + self.ctvolume.physical_center
+        physical_coords = image_pos_coords + self.CTVolume.physical_center
 
         return physical_coords
-    
-
-    def get_physical_voxel_coords(self, 
-                                  draw_x: int,
-                                  draw_y: int) -> np.ndarray:
-    
-        physical_coords = self.get_physical_pos_coords(draw_x, draw_y)
-        physical_voxel_coords = (physical_coords - self.ctvolume.physical_start) / self.ctvolume.pixel_steps
-        
-        return physical_voxel_coords.round(2)
 
     def get_drawing_pos_coords(self, 
                                draw_x: int,
@@ -186,24 +189,118 @@ class VolumeLayer(object):
 
     def delete_landmark(self, 
                         landmark_id):
-        self.landmarks.delete_landmark(landmark_id)
+        self.Landmarks.delete_landmark(landmark_id)
 
 
     def save_landmarks(self, 
-                       prefix: str = '',
-                       file_path: Path = None,
-                       extension = 'csv'):
+                       file_path: Path = None):
         
         if file_path == None:
-            file_path = self.file.parent.joinpath(f'{prefix}-{self.name}Landmarks.{extension}')
+            file_path = self.Landmarks.file_path
 
-        volume_affine = self.ctvolume.affine
+        volume_affine = self.CTVolume.affine
 
-        self.landmarks.save_landmarks(file_path, 
+        self.Landmarks.save_landmarks(file_path, 
                                       self.name,
-                                      volume_affine,
-                                      extension)
+                                      volume_affine)
 
+
+    def load_landmark_data(self, 
+                           current_origin,
+                           current_quaternion,
+                           current_geometry,
+                           file_path: Path = None) -> dict:
+        """
+        
+        Returns a dictionary containing: 
+            image_coords, voxel_coords, norms, quaternions, geometries
+        
+        """
+
+        if file_path == None:
+            file_path = self.Landmarks.file_path
+        
+        loaded_data = self.Landmarks.load_landmark_data(current_origin,
+                                                        current_quaternion, 
+                                                        current_geometry, 
+                                                        file_path)
+
+        return loaded_data
+
+
+    def get_landmark_patches(self, 
+                             loaded_landmark_data,
+                             volume_operations):
+        """
+        loaded_landmark_data is of form: 
+
+            loaded_data = {'image_coords': ..., 
+                           'voxel_coords': ...,
+                           'drawing_coords': ...,
+                           'norms': ...,
+                           'quaternions': ...,
+                           'geometries': ...}
+
+            drawing_pos_x, drawing_pos_y = 
+        """
+
+        patches = []
+        patch_widths = []
+
+        orientation_info = {'origin_x': loaded_landmark_data['image_coords'][0, 1].item(),
+                            'origin_y': loaded_landmark_data['image_coords'][0, 0].item(), 
+                            'origin_z': loaded_landmark_data['image_coords'][0, 2].item(),
+                            'norm': loaded_landmark_data['norms'][0],
+                            'pitch': loaded_landmark_data['quaternions'][0],
+                            'yaw': loaded_landmark_data['norms'][0],
+                            'roll': loaded_landmark_data['norms'][0],
+                            'pixel_spacing_x': loaded_landmark_data['geometries'][0, 0],
+                            'pixel_spacing_y': loaded_landmark_data['geometries'][0, 1],
+                            'slice_thickness': loaded_landmark_data['geometries'][0, 2],
+                            'drawlayer_tag': self.Orientation.drawlayer.current_value}
+        
+        
+        for landmark_index in range(loaded_landmark_data['image_coords'].shape[0]):
+            quaternion = qtn.array(loaded_landmark_data['quaternions'][landmark_index])
+            yaw, pitch, roll = quaternion.to_axis_angle
+            orientation_info['origin_x'] = loaded_landmark_data['image_coords'][landmark_index, 0].item()
+            orientation_info['origin_y'] = loaded_landmark_data['image_coords'][landmark_index, 1].item()
+            orientation_info['origin_z'] = loaded_landmark_data['image_coords'][landmark_index, 2].item()
+            orientation_info['norm'] = 0.0
+            orientation_info['pitch'] = pitch.item()
+            orientation_info['yaw'] = yaw.item()
+            orientation_info['roll'] = roll.item()
+            orientation_info['pixel_spacing_x'] = loaded_landmark_data['geometries'][landmark_index, 0].item()
+            orientation_info['pixel_spacing_y'] = loaded_landmark_data['geometries'][landmark_index, 1].item()
+            orientation_info['slice_thickness'] = loaded_landmark_data['geometries'][landmark_index, 2].item()
+            orientation_info['drawlayer_tag'] = self.Orientation.drawlayer.current_value
+            
+            print(f'\t{orientation_info = }')
+
+            print(f'\tget_landmark_patches(): Updating Orientation')
+            self.update_orientation(orientation_info)
+            print(f'\tget_landmark_patches(): Updating Texture')
+            self.update_texture(volume_operations, 
+                                loading_landmarks = True)
+
+            geometry = self.Orientation.geometry_vector.current_value.get().reshape((3, ))
+            patch_width = int(10 * np.mean(geometry))
+
+            drawing_coords = loaded_landmark_data['drawing_coords'][landmark_index]
+
+            patch_x = [int(drawing_coords[0] - patch_width), int(drawing_coords[0] + patch_width + 1)]
+            patch_y = [int(drawing_coords[1] - patch_width), int(drawing_coords[1] + patch_width + 1)]
+            print(f'\tget_landmark_patches(): Getting Patch')
+            patches.append(self.get_texture_patch(patch_x,
+                                                  patch_y,
+                                                  exclude_nan = False,
+                                                  rescale = False,
+                                                  return_as_numpy = True,
+                                                  colorize = True))
+            patch_widths.append(patch_width)
+
+        return patches, patch_widths
+    
 
     def add_landmark(self, 
                      drawing_coords: tuple[int],
@@ -220,9 +317,9 @@ class VolumeLayer(object):
                      patch_size:int = 11,
                      show_landmark: bool = True):
         
-        print('VolumeLayer Message: Adding Landmark')
-        
-        self.landmarks.add_landmark(drawing_coords, 
+        print('VolumeLayer Message: add_landmark')
+        print(f'\tlandmarks.add_landmark()')
+        self.Landmarks.add_landmark(drawing_coords, 
                                     image_coords, 
                                     image_coords_hu,
                                     voxel_coords,
@@ -241,7 +338,7 @@ class VolumeLayer(object):
 
 
     def update_landmark_colors(self, landmark_id: int|None = None):
-        self.landmarks.update_landmark_colors(landmark_id = landmark_id)
+        self.Landmarks.update_landmark_colors(landmark_id = landmark_id)
 
     
     def update_landmarks(self, 
@@ -251,26 +348,26 @@ class VolumeLayer(object):
                          geometry_vector: cp.ndarray = None,
                          landmark_id: int|None = None):
         
-        if self.landmarks.number_of_landmarks == 0:
+        if self.Landmarks.number_of_landmarks == 0:
             return
         
         with dpg.mutex(): 
         
             if update_type == 'Colors':
-                self.landmarks.update_landmark_colors(landmark_id = landmark_id)
+                self.Landmarks.update_landmark_colors(landmark_id = landmark_id)
 
             elif update_type == 'Orientation':
-                self.landmarks.update_landmarks(origin_vector, 
+                self.Landmarks.update_landmarks(origin_vector, 
                                                 quaternion,
                                                 geometry_vector)
                 
             elif update_type == 'All':
 
-                self.landmarks.update_landmarks(origin_vector, 
+                self.Landmarks.update_landmarks(origin_vector, 
                                                 quaternion,
                                                 geometry_vector)
                 
-                self.landmarks.update_landmark_colors(landmark_id = landmark_id)
+                self.Landmarks.update_landmark_colors(landmark_id = landmark_id)
                 
             else:
                 print(f'VolumeLayers Message: update_landmarks Error.')
@@ -279,13 +376,13 @@ class VolumeLayer(object):
         
 
     def set_texture(self):
-        self.texture = Textures.Texture(self.ctvolume)
+        self.Texture = Textures.Texture(self.CTVolume)
 
 
     def set_ctvolume(self, volume_name:str, volume_data:CTVolume.CTVolume):
-        self.ctvolume = volume_data
-        self.name = self.ctvolume.name if volume_name is not None else volume_name
-        self.file = self.ctvolume.file
+        self.CTVolume = volume_data
+        self.name = self.CTVolume.name if volume_name is not None else volume_name
+        self.file = self.CTVolume.file
 
 
     def set_is_volume_viewed(self, volume_viewed_bool:bool = False):
@@ -332,14 +429,14 @@ class VolumeLayer(object):
         So we run this when changing volumes or between Layer and Group control. 
         """
         
-        if option_class not in ['geometry', 'orientation', 'intensity']:
-            print(f'VolumeLayer Message: Option class {option_class} not recognized. Only "orientation" or "intensity" accepted.')
+        if option_class not in ['geometry', 'Orientation', 'Intensity']:
+            print(f'VolumeLayer Message: Option class {option_class} not recognized. Only "Orientation" or "Intensity" accepted.')
             return
 
-        for control_option_name in getattr(self, f'{option_class}_control_list'):
+        for control_option_name in getattr(self, f'{option_class.lower()}_control_list'):
             option_tag = G.OPTION_TAG_DICT[control_option_name]
-            if getattr(self, f'{option_class}_control') == 'Group':
-                control_option = getattr(getattr(self.group, option_class), control_option_name)
+            if getattr(self, f'{option_class.lower()}_control') == 'Group':
+                control_option = getattr(getattr(self.Group, option_class), control_option_name)
             else:
                 control_option = getattr(getattr(self, option_class), control_option_name)
             # We need to configure the option limits when changing volumes, 
@@ -374,10 +471,10 @@ class VolumeLayer(object):
     
     def reset_orientation(self):
         if self.orientation_control == 'Group':
-            self.group.orientation.reset_orientation()
+            self.Group.Orientation.reset_orientation()
 
         else:
-            self.orientation.reset_orientation()
+            self.Orientation.reset_orientation()
 
     def update_intensity(self, 
                          intensity_info: dict):
@@ -397,10 +494,10 @@ class VolumeLayer(object):
 
     def update_orientation(self, orientation_info:dict):
         if self.orientation_control == 'Group':
-            self.group.orientation.update_orientation(**orientation_info)
+            self.Group.Orientation.update_orientation(**orientation_info)
         
         else:
-            self.orientation.update_orientation(**orientation_info)
+            self.Orientation.update_orientation(**orientation_info)
 
 
         print(f'VolumeLayer Message: Updating Values')
@@ -437,25 +534,25 @@ class VolumeLayer(object):
                         colormap_rescaled: bool = None):
         
         if self.intensity_control == 'Group':
-            self.group.intensity.update_colormap(colormap_name = colormap_name,
+            self.Group.Intensity.update_colormap(colormap_name = colormap_name,
                                                  colormap_reversed = colormap_reversed, 
                                                  colormap_log = colormap_log,
                                                  colormap_scale_type = colormap_scale_type,
                                                  colormap_scale_tag = colormap_scale_tag,
                                                  colormap_rescaled = colormap_rescaled)
         else:
-            self.intensity.update_colormap(colormap_name = colormap_name,
+            self.Intensity.update_colormap(colormap_name = colormap_name,
                                            colormap_reversed = colormap_reversed, 
                                            colormap_log = colormap_log,
                                            colormap_scale_type = colormap_scale_type,
                                            colormap_scale_tag = colormap_scale_tag,
                                            colormap_rescaled = colormap_rescaled)
         
-        self.colormap = self.intensity.colormap
-        self.colormap_reversed = self.intensity.colormap_reversed
-        self.colormap_log = self.intensity.colormap_log
-        self.colormap_name = self.intensity.colormap_name
-        self.colormap_string = self.intensity.get_colormap_string()
+        self.colormap = self.Intensity.colormap
+        self.colormap_reversed = self.Intensity.colormap_reversed
+        self.colormap_log = self.Intensity.colormap_log
+        self.colormap_name = self.Intensity.colormap_name
+        self.colormap_string = self.Intensity.get_colormap_string()
 
 
     def update_window(self, 
@@ -470,31 +567,32 @@ class VolumeLayer(object):
             max_intensity = dpg.get_value(G.OPTION_TAG_DICT['max_intensity'])
 
         if self.intensity_control == 'Group':
-            self.group.intensity.update_window(min_intensity, max_intensity, window_size)
+            self.Group.Intensity.update_window(min_intensity, max_intensity, window_size)
         else:
-            self.intensity.update_window(min_intensity, max_intensity, window_size)
+            self.Intensity.update_window(min_intensity, max_intensity, window_size)
 
 
     def set_dpg_window(self):
         if self.intensity_control == 'Group':
-            dpg.set_value(G.OPTION_TAG_DICT['min_intensity'], self.group.intensity.min_intensity.current_value)
-            dpg.set_value(G.OPTION_TAG_DICT['max_intensity'], self.group.intensity.max_intensity.current_value)
+            dpg.set_value(G.OPTION_TAG_DICT['min_intensity'], self.Group.Intensity.min_intensity.current_value)
+            dpg.set_value(G.OPTION_TAG_DICT['max_intensity'], self.Group.Intensity.max_intensity.current_value)
             
         else:
-            dpg.set_value(G.OPTION_TAG_DICT['min_intensity'], self.intensity.min_intensity.current_value)
-            dpg.set_value(G.OPTION_TAG_DICT['max_intensity'], self.intensity.max_intensity.current_value)
+            dpg.set_value(G.OPTION_TAG_DICT['min_intensity'], self.Intensity.min_intensity.current_value)
+            dpg.set_value(G.OPTION_TAG_DICT['max_intensity'], self.Intensity.max_intensity.current_value)
 
     def set_colormap_scale_tag(self, 
                                colormap_scale_tag: str):
-        self.intensity.set_colormap_scale_tag(colormap_scale_tag)
-        self.texture.set_colormap_scale_tag(colormap_scale_tag)
+        self.Intensity.set_colormap_scale_tag(colormap_scale_tag)
+        self.Texture.set_colormap_scale_tag(colormap_scale_tag)
 
     def set_drawlayer_tag(self, 
                          drawlayer_tag: str):
-        self.orientation.set_drawlayer_tag(drawlayer_tag)
+        self.Orientation.set_drawlayer_tag(drawlayer_tag)
 
     def update_texture(self,
-                       operation_instance: VolumeOperations.VolumeOperations):
+                       operation_instance: VolumeOperations.VolumeOperations,
+                       loading_landmarks: bool = False):
 
         pixel_start = [0, 0]
         pixel_end = [G.TEXTURE_DIM, G.TEXTURE_DIM]
@@ -518,17 +616,22 @@ class VolumeLayer(object):
                 operation_instance.operation, 
                 self.get_orientation().norm_vector.current_value,
                 self.get_orientation().view_plane.get_voxel_view(),
-                self.ctvolume,
+                self.CTVolume,
                 start = operation_instance.start,
                 stop = operation_instance.stop,
                 order = order_dict[dpg.get_value('interpolation_combo_box')])
-            self.texture.set_texture_value(operation_instance.texture_content)
+            self.Texture.set_texture_value(operation_instance.texture_content)
+
         else:
-            self.interpolate_texture(self.texture.texture_content, 
-                                    self.get_orientation().view_plane.get_voxel_view(),
-                                    dpg.get_value('interpolation_combo_box'))
+            self.interpolate_texture(self.Texture.texture_content, 
+                                     self.get_orientation().view_plane.get_voxel_view(),
+                                     dpg.get_value('interpolation_combo_box'))
+            
+        # We don't want to update the actual drawn texture if we are just loading landmarks.
+        if loading_landmarks:
+            return
         
-        self.texture.update_texture(colormap = colormap,
+        self.Texture.update_texture(colormap = colormap,
                                     colormap_scale_type = colormap_scale_type,
                                     colormap_scale_tag = colormap_scale_tag,
                                     x_shift = x_shift,
@@ -548,17 +651,17 @@ class VolumeLayer(object):
                           return_as_numpy: bool = True,
                           colorize: bool = True) -> np.ndarray:
         
-        texture_patch = self.texture.get_texture_patch(patch_x, 
+        texture_patch = self.Texture.get_texture_patch(patch_x, 
                                                        patch_y,
                                                        exclude_nan = exclude_nan,
                                                        rescale = rescale,
                                                        return_as_numpy = return_as_numpy)
 
         if colorize: 
-            texture_patch = self.texture.colorize_texture_patch(texture_patch, 
+            texture_patch = self.Texture.colorize_texture_patch(texture_patch, 
                                                                 patch_x, 
                                                                 patch_y,
-                                                                self.intensity.get_colormap_string())
+                                                                self.Intensity.get_colormap_string())
         
         return texture_patch
 
@@ -571,23 +674,23 @@ class VolumeLayer(object):
         # we go from Layer -> Group, aligning the layer to the Group it, and from Group -> Layer, 
         # making the Layer independent of the Group. 
         # if G.FILE_LOADED:
-        #     self.orientation.copy_orientation(self.group.orientation)
-        #     self.intensity.copy_intensity(self.group.intensity)
-            # self.volume_histogram.copy_histogram(self.group.histogram)
+        #     self.Orientation.copy_orientation(self.Group.Orientation)
+        #     self.Intensity.copy_intensity(self.Group.Intensity)
+            # self.VolumeHistogram.copy_histogram(self.Group.histogram)
         
         self.orientation_control = orientation_control
         self.intensity_control = intensity_control
         # self.histogram_control = intensity_control
 
     def window_and_normalize_texture(self):
-        self.texture.window_and_normalize()
+        self.Texture.window_and_normalize()
 
 
     def assign_texture(self):
         if self.intensity_control == 'Group':
-            self.texture.assign_texture(self.group.intensity.colormap)
+            self.Texture.assign_texture(self.Group.Intensity.colormap)
         else:
-            self.texture.assign_texture(self.intensity.colormap)
+            self.Texture.assign_texture(self.Intensity.colormap)
 
 
     def interpolate_texture(self, 
@@ -610,10 +713,10 @@ class VolumeLayer(object):
         return
     
     def delete_texture(self):
-        self.texture.delete_texture()
+        self.Texture.delete_texture()
 
     def remove_texture_from_drawlist(self):
-        self.texture.delete_drawn_texture()
+        self.Texture.delete_drawn_texture()
 
     def add_texture_to_drawlist(self, 
                                 pixel_start:list[float|int, float|int] = [None, None], 
@@ -628,7 +731,7 @@ class VolumeLayer(object):
         if pixel_end == [None, None]:
             pixel_end = [self.texture_dim, self.texture_dim]
         
-        self.texture.add_texture_to_drawlist(pixel_start = pixel_start,
+        self.Texture.add_texture_to_drawlist(pixel_start = pixel_start,
                                              pixel_end = pixel_end,
                                              uv_min = uv_min,
                                              uv_max = uv_max,
@@ -650,17 +753,17 @@ class VolumeLayer(object):
 
         if type(out_array) == type(None):
 
-            return self.ctvolume.interpolate(view_plane, 
+            return self.CTVolume.interpolate(view_plane, 
                                              order = order)
 
          
         else:
             if type(out_mask) == type(None):
-                out_array[:] = self.ctvolume.interpolate(view_plane, 
+                out_array[:] = self.CTVolume.interpolate(view_plane, 
                                                          order = order).reshape(out_array.shape)[:]
                 
             else:
-                out_array[out_mask] = self.ctvolume.interpolate(view_plane, 
+                out_array[out_mask] = self.CTVolume.interpolate(view_plane, 
                                                                 order = order).reshape(out_array.shape)[out_mask]
 
     
@@ -669,14 +772,14 @@ class VolumeLayer(object):
                          out_mask = None, 
                          view_plane = None):
         if type(out_array) == type(None):
-            return self.mask_interpolator(self.orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
+            return self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
                                       method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:]
         else:
             if type(out_mask) == type(None):
-                out_array[:] = self.mask_interpolator(self.orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
+                out_array[:] = self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
                                                       method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:].reshape(out_array.shape)
             else:
-                out_array[out_mask] = self.mask_interpolator(self.orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
+                out_array[out_mask] = self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
                                                              method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:].reshape(out_array.shape)[out_mask]
     
     def print_orientation_value(self, value: str, check_control = True):
@@ -685,22 +788,22 @@ class VolumeLayer(object):
             Can be any of the OptionValue.OrientationInfo attributes. 
         """
         if check_control and (self.orientation_control == 'Group'):
-            return f"{getattr(self.group.orientation, f'{value}')}"
+            return f"{getattr(self.Group.Orientation, f'{value}')}"
         
-        return f"{getattr(self.orientation, f'{value}')}"
+        return f"{getattr(self.Orientation, f'{value}')}"
 
 
     def get_orientation(self):
         if self.orientation_control == 'Group':
-            return self.group.orientation
+            return self.Group.Orientation
         
-        return self.orientation
+        return self.Orientation
     
     def get_intensity(self):
         if self.intensity_control == 'Group':
-            return self.group.intensity
+            return self.Group.Intensity
         
-        return self.intensity
+        return self.Intensity
 
     
     def get_orientation_value(self, 
@@ -715,10 +818,10 @@ class VolumeLayer(object):
         """
 
         if check_control and (self.orientation_control == 'Group'):
-            value_object = getattr(self.group.orientation, f'{value}')
+            value_object = getattr(self.Group.Orientation, f'{value}')
 
         else:
-            value_object = getattr(self.orientation, f'{value}')
+            value_object = getattr(self.Orientation, f'{value}')
 
         if modifier == '':
             return value_object
@@ -736,10 +839,10 @@ class VolumeLayer(object):
             Default is 'current_value'
         """
         if check_control and (self.intensity_control == 'Group'):
-            value_object = getattr(self.group.intensity, f'{value}')
+            value_object = getattr(self.Group.Intensity, f'{value}')
 
         else:
-            value_object = getattr(self.intensity, f'{value}')
+            value_object = getattr(self.Intensity, f'{value}')
 
         if modifier == '':
             return value_object
@@ -753,7 +856,7 @@ class VolumeLayer(object):
         print('VolumeLayer Message: Updating Histogram')
         with dpg.mutex():
             if histogram_type == 'volume':
-                histogram_name = 'volume_histogram'
+                histogram_name = 'VolumeHistogram'
                 info_prefix = 'InfoBoxTab_histogram_volume'
                 bin_min = histogram_info[f'{info_prefix}_bins_min']
                 bin_max = histogram_info[f'{info_prefix}_bins_max']
@@ -761,7 +864,7 @@ class VolumeLayer(object):
                 target_line_series = histogram_info[f'{info_prefix}_plot_line_series']
 
             elif histogram_type == 'texture':
-                histogram_name = 'texture_histogram'
+                histogram_name = 'TextureHistogram'
                 info_prefix = 'InfoBoxTab_histogram_texture'
                 bin_min = histogram_info[f'{info_prefix}_bins_min']
                 bin_max = histogram_info[f'{info_prefix}_bins_max']
@@ -783,15 +886,15 @@ class VolumeLayer(object):
                 histogram.update_histogram_counts(self.interpolator.values[~self.mask_interpolator.values.astype(bool)])
 
             else: 
-                histogram.update_histogram_counts(self.texture.get_texture_content(exclude_nan = True, rescale = True))
+                histogram.update_histogram_counts(self.Texture.get_texture_content(exclude_nan = True, rescale = True))
 
             dpg.set_value(target_line_series, histogram.get_histogram(return_order='reversed'))
         
         
     def set_dpg_histogram_values(self):
-        dpg.set_value('InfoBoxTab_histogram_volume_bins_min', self.volume_histogram.bins_min())
-        dpg.set_value('InfoBoxTab_histogram_volume_bins_max', self.volume_histogram.bins_max())
-        dpg.set_value('InfoBoxTab_histogram_volume_bin_step', self.volume_histogram.bin_step())
+        dpg.set_value('InfoBoxTab_histogram_volume_bins_min', self.VolumeHistogram.bins_min())
+        dpg.set_value('InfoBoxTab_histogram_volume_bins_max', self.VolumeHistogram.bins_max())
+        dpg.set_value('InfoBoxTab_histogram_volume_bin_step', self.VolumeHistogram.bin_step())
 
 
     def get_histogram(self, 
@@ -808,12 +911,12 @@ class VolumeLayer(object):
         bin_step = dpg.get_value('InfoBoxTab_histogram_volume_bin_step') if step_enabled else None
 
         if update_histogram:
-            self.volume_histogram.update_histogram_params(min_value = bin_min, 
+            self.VolumeHistogram.update_histogram_params(min_value = bin_min, 
                                                           max_value = bin_max, 
                                                           bin_step = bin_step)
-            self.volume_histogram.update_histogram_counts(self.interpolator.values[~self.mask_interpolator.values.astype(bool)])
+            self.VolumeHistogram.update_histogram_counts(self.interpolator.values[~self.mask_interpolator.values.astype(bool)])
         
-        return self.volume_histogram.get_histogram(return_order = return_order, asnumpy = asnumpy)
+        return self.VolumeHistogram.get_histogram(return_order = return_order, asnumpy = asnumpy)
 
 
     def set_dpg_histogram_limits(self, 
@@ -822,12 +925,12 @@ class VolumeLayer(object):
                                  min_y = None, max_y = None):
         
         dpg.set_axis_limits(x_axis, 
-                            self.volume_histogram.bins_min() if min_x is None else min_x,
-                            self.volume_histogram.bins_max() if max_x is None else max_x)
+                            self.VolumeHistogram.bins_min() if min_x is None else min_x,
+                            self.VolumeHistogram.bins_max() if max_x is None else max_x)
         
         dpg.set_axis_limits(y_axis, 
-                            self.volume_histogram.bin_counts().min() if min_y is None else min_y,
-                            self.volume_histogram.bin_counts().max() if max_y is None else max_y)
+                            self.VolumeHistogram.bin_counts().min() if min_y is None else min_y,
+                            self.VolumeHistogram.bin_counts().max() if max_y is None else max_y)
         
         if unlock_axes:
             dpg.set_axis_limits_auto(x_axis)
@@ -835,11 +938,11 @@ class VolumeLayer(object):
 
 
     def show_landmarks(self):
-        self.landmarks.show_landmarks()
+        self.Landmarks.show_landmarks()
 
 
     def hide_landmarks(self):
-        self.landmarks.hide_landmarks()
+        self.Landmarks.hide_landmarks()
 
     def _cleanup_(self):
         attrib_list = list(self.__dict__.keys())
@@ -919,7 +1022,7 @@ class VolumeLayerGroup(object):
         self.text_info_tag: str = None
         self.landmark_draw_layer_tag: str = None
         
-        # self.orientation: OptionValue.OrientationInfo = OptionValue.OrientationInfo(tag = f'{self.group_name}|VolumeLayerGroup|Orientation',
+        # self.Orientation: OptionValue.OrientationInfo = OptionValue.OrientationInfo(tag = f'{self.group_name}|VolumeLayerGroup|Orientation',
         #                                                                             default_origin = default_origin,
         #                                                                             default_angle = default_angle,
         #                                                                             default_norm = default_norm,
@@ -928,12 +1031,12 @@ class VolumeLayerGroup(object):
         #                                                                             default_limits_norm = default_limits_norm,
         #                                                                             default_drawlayer_tag = default_drawlayer_tag)
         
-        # self.intensity: OptionValue.IntensityInfo = OptionValue.IntensityInfo(tag = f'{self.group_name}|VolumeLayerGroup|Intensity',
+        # self.Intensity: OptionValue.IntensityInfo = OptionValue.IntensityInfo(tag = f'{self.group_name}|VolumeLayerGroup|Intensity',
         #                                                                       default_intensity = default_intensity, 
         #                                                                       default_limits = default_limits_intensity)
 
-        # self.volume_histogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
-        # self.texture_histogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
+        # self.VolumeHistogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
+        # self.TextureHistogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
 
 
     def configure_orientation_options(self,
@@ -953,7 +1056,7 @@ class VolumeLayerGroup(object):
                                       voxel_steps,
                                       default_drawlayer_tag): 
         
-        self.orientation: OptionValue.OrientationInfo = OptionValue.OrientationInfo(tag = f'{self.group_name}|VolumeLayerGroup|Orientation',
+        self.Orientation: OptionValue.OrientationInfo = OptionValue.OrientationInfo(tag = f'{self.group_name}|VolumeLayerGroup|Orientation',
                                                                                     default_origin = default_origin,
                                                                                     default_angle = default_angle, 
                                                                                     default_norm = default_norm,
@@ -963,8 +1066,8 @@ class VolumeLayerGroup(object):
                                                                                     default_limits_origin = default_limits_origin,
                                                                                     default_limits_norm = default_limits_norm,
                                                                                     default_limits_geometry = default_limits_geometry,
-                                                                                    default_texture_dim = default_texture_dim, #self.ctvolume.texture_dim,
-                                                                                    default_texture_center = default_texture_center, #self.ctvolume.texture_center)
+                                                                                    default_texture_dim = default_texture_dim, #self.CTVolume.texture_dim,
+                                                                                    default_texture_center = default_texture_center, #self.CTVolume.texture_center)
                                                                                     voxel_start = voxel_start,
                                                                                     voxel_center = voxel_center,
                                                                                     voxel_steps = voxel_steps,
@@ -972,13 +1075,13 @@ class VolumeLayerGroup(object):
         
     def configure_intensity_options(self, 
                                     default_colormap_info):
-        self.intensity: OptionValue.IntensityInfo = OptionValue.IntensityInfo(tag = f'{self.group_name}|VolumeLayerGroup|Intensity',
+        self.Intensity: OptionValue.IntensityInfo = OptionValue.IntensityInfo(tag = f'{self.group_name}|VolumeLayerGroup|Intensity',
                                                                               default_colormap_info = default_colormap_info)
         
     def configure_histogram_options(self, 
                                     default_histogram):
-        self.volume_histogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
-        self.texture_histogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
+        self.VolumeHistogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
+        self.TextureHistogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
 
     def set_text_info_tag(self, drawlayer_tag:str):
         self.text_info_tag = drawlayer_tag
@@ -1011,11 +1114,11 @@ class VolumeLayerGroup(object):
 
     def set_colormap_scale_tag(self, 
                                colormap_scale_tag: str):
-        self.intensity.set_colormap_scale_tag(colormap_scale_tag)
+        self.Intensity.set_colormap_scale_tag(colormap_scale_tag)
 
     def set_drawlayer_tag(self, 
                          drawlayer_tag: str):
-        self.orientation.set_drawlayer_tag(drawlayer_tag)
+        self.Orientation.set_drawlayer_tag(drawlayer_tag)
 
     def set_volume(self, volumeLayer: VolumeLayer):
         if volumeLayer.name not in self.volume_names:
@@ -1125,7 +1228,7 @@ class VolumeLayerGroup(object):
 
     def get_orientation_info(self, control_mode = 'Group'):
         if control_mode == 'Group':
-            return self.orientation.view_plane(), self.orientation.norm_vector(), self.orientation.norm()
+            return self.Orientation.view_plane(), self.Orientation.norm_vector(), self.Orientation.norm()
         
         else:
             pass
@@ -1155,6 +1258,8 @@ class VolumeLayerGroup(object):
                      landmark_patch: np.ndarray = np.zeros((11, 11), dtype = np.float32),
                      patch_size = 11,
                      show_landmark: bool = True):
+        print('VolumeLayerGroup Message: add_landmark')
+        print(f'\tcurrent_volume().add_landmark()')
         
         self.current_volume.add_landmark(drawing_coords,
                                          image_coords,
@@ -1275,8 +1380,8 @@ class VolumeLayerGroups(object):
     def set_control_options(self, 
                             changing_volumes: bool = False) -> None:
         # self.set_options_panel()
-        self.get_current_volume().set_control_options('orientation', changing_volumes = changing_volumes)
-        self.get_current_volume().set_control_options('intensity', changing_volumes = changing_volumes)
+        self.get_current_volume().set_control_options('Orientation', changing_volumes = changing_volumes)
+        self.get_current_volume().set_control_options('Intensity', changing_volumes = changing_volumes)
 
 
     def change_current_group_and_volume(self, 
@@ -1286,8 +1391,8 @@ class VolumeLayerGroups(object):
         self.set_current_volume_by_index(0, img_index)
 
         self.set_control_options(changing_volumes = True)
-        # self.get_current_volume().set_control_options('orientation', changing_volumes = True)
-        # self.get_current_volume().set_control_options('intensity', changing_volumes = True)
+        # self.get_current_volume().set_control_options('Orientation', changing_volumes = True)
+        # self.get_current_volume().set_control_options('Intensity', changing_volumes = True)
         self.get_current_volume().show_landmarks()
 
         dpg.set_item_label(f'orientation_group_layer_control_button', self.get_current_volume().orientation_control)
@@ -1518,6 +1623,8 @@ class VolumeLayerGroups(object):
 
         show_landmark = True
         
+        print('VolumeLayerGroups Message: add_landmark')
+        print(f'\tget_current_group().add_landmark()')
         self.get_current_group().add_landmark(drawing_coords,
                                               image_coords,
                                               image_coords_hu,
@@ -1539,14 +1646,74 @@ class VolumeLayerGroups(object):
 
     def save_landmarks(self):
         if self.active:
-            for group_name in self.group_dict.keys():
-                for volume_name in self.group_dict[group_name]:
-                    print(f'VolumeLayerGroups Message: Saving landmarks for {volume_name}.')
-                    self.get_volume_by_name(group_name, volume_name).save_landmarks(prefix = group_name)
+            print(f'VolumeLayerGroups Message: Saving landmarks for {self.get_current_volume().name}.')
+            self.get_current_volume().save_landmarks()
+            # for group_name in self.group_dict.keys():
+            #     for volume_name in self.group_dict[group_name]:
+            #         self.get_volume_by_name(group_name, volume_name).save_landmarks()
 
+
+    def load_landmarks(self, 
+                       orientation_info: dict,
+                       intensity_info: dict,
+                       control_info: dict,
+                       text_info: dict,
+                       operation_info: dict):
+        if self.active:
+            print(f'VolumeLayerGroups Message: Loading landmarks for {self.get_current_volume().name}.')
+
+            landmark_data = self.get_current_volume().load_landmark_data(self.get_current_orientation().origin_vector.current_value.reshape((3, )).get(),
+                                                                         self.get_current_orientation().quaternion.current_value,
+                                                                         self.get_current_orientation().geometry_vector.current_value.reshape((3, )).get())
+            
+            landmark_draw_layer_tag = self.get_current_group().landmark_draw_layer_tag
+            if landmark_data == False:
+                return
+            
+            print(f'\tget_current_volume().get_landmark_patches')
+            patches, patch_widths = self.get_current_volume().get_landmark_patches(landmark_data, self.volume_operations)
+
+            last_landmark_info = []
+            
+            print(f'\tget_current_group().add_landmark')
+            for landmark_index in range(len(patches)):
+                drawing_coords = tuple([landmark_data['drawing_coords'][landmark_index, :2].astype(int)[0].item(), 
+                                        landmark_data['drawing_coords'][landmark_index, :2].astype(int)[1].item()])
+                self.get_current_group().add_landmark(drawing_coords,
+                                                       landmark_data['image_coords'][landmark_index, :3],
+                                                       landmark_data['image_coords'][landmark_index, 3],
+                                                       landmark_data['voxel_coords'][landmark_index, :3], 
+                                                       landmark_data['quaternions'][landmark_index],
+                                                       landmark_data['norms'][landmark_index],
+                                                       landmark_draw_layer_tag,
+                                                       color = dpg.get_value('landmark_color_picker'),
+                                                       size = 5.0, 
+                                                       geometry = landmark_data['geometries'][landmark_index],
+                                                       landmark_patch = patches[landmark_index],
+                                                       patch_size = 2*patch_widths[landmark_index] + 1, 
+                                                       show_landmark = True)
+                print(f'\t{self.get_last_landmark() = }')
+                last_landmark_info.append(self.get_last_landmark())
+            
+            
+            print(f'\tupdate_current_volume')
+            self.update_current_volume(False,
+                                       control_info,
+                                       orientation_info,
+                                       intensity_info,
+                                       text_info,
+                                       operation_info)
+
+            print(f'\tget_current_volume().update_landmarks')
+            self.get_current_volume().update_landmarks(update_type='All',
+                                                       origin_vector = self.get_crosshair_coords(),
+                                                       quaternion = self.get_current_orientation().quaternion.current_value,
+                                                       geometry_vector = self.get_current_orientation().geometry_vector.current_value.reshape((3, )).get())
+
+            return last_landmark_info
 
     def get_last_landmark(self):
-        return self.get_current_volume().landmarks.get_last_landmark()
+        return self.get_current_volume().Landmarks.get_last_landmark()
 
 
     def update_mouse_volume_coord_info(self, 
@@ -1684,6 +1851,22 @@ class VolumeLayerGroups(object):
 
     def set_inactive(self):
         self.active = False
+
+
+    def get_orientation_info(self):
+        pass
+
+
+    def get_intensity_info(self):
+        pass
+
+
+    def get_control_info(self):
+        pass
+
+
+    def get_text_info(self):
+        pass
 
 
     def remove_group(self, group_name):

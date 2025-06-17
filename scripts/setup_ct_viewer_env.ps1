@@ -17,7 +17,7 @@ $nvcc_version = & nvcc --version | Select-String -Pattern "release" | ForEach-Ob
 & pip install dearpygui python-gdcm
 
 # Install ct_viewer
-$ct_viewer_dir = "$env:DROPBOX\Code\Python\medical_physics\ct_viewer\dist"
+$ct_viewer_dir = "$env:DROPBOX\Code\Python\medical_physics\CTViewer\dist"
 Set-Location $ct_viewer_dir
 
 $latest_whl_file = Get-ChildItem -Path . -Filter *.whl | Sort-Object LastWriteTime -Descending | Select-Object -First 1

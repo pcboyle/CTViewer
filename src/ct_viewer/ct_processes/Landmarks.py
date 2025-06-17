@@ -13,12 +13,22 @@ class Landmarks(object):
 
     def __init__(self,
                  volume_name:str,
+                 physical_center:np.ndarray,
+                 physical_start:np.ndarray,
+                 physical_steps:np.ndarray,
                  texture_center:int|float = 500,
+                 group_name: str = 'AllVolumes',
+                 volume_file: Path = None,
                  max_landmarks:int = 2**16):
 
         self.max_landmarks = max_landmarks
         self.texture_center = texture_center
         self.volume_name = volume_name
+        self.group_name = group_name
+        self.file_path = volume_file.parent.joinpath(f'{group_name}-{self.volume_name}-Landmarks.csv')
+        self.physical_center = physical_center
+        self.physical_start = physical_start
+        self.physical_steps = physical_steps
         self.landmarks_table = f'{volume_name}_landmarks_table'
 
         self.landmark_image_coords = np.zeros((self.max_landmarks, 4), dtype = np.float32) #(x, y, z, hu), obtained using VolumeLayerGroups.get_drawing_pos_coords
@@ -116,6 +126,7 @@ class Landmarks(object):
         # print(f'\tLandmark {self.landmark_index} Color: {self.landmark_rgba[self.landmark_index]}')
         self.landmark_last_tag = f'{self.volume_name}||{self.landmark_index}'
 
+        print(f'\tDrawing Circle: {drawing_coords = }')
         landmark_circle = dpg.draw_circle(
             drawing_coords,
             radius = size * np.mean(geometry), 
@@ -123,6 +134,9 @@ class Landmarks(object):
             parent = draw_layer,
             tag = self.landmark_last_tag
         )
+
+        
+        print(f'\Circle Configuration: {dpg.get_item_configuration(self.landmark_last_tag)}')
 
         self.landmark_dict[landmark_circle] = self.landmark_index
         patch_texture_tag = f'{landmark_circle}||PatchTexture'
@@ -132,6 +146,55 @@ class Landmarks(object):
         self.landmark_index += 1        
         self.number_of_landmarks += 1
         self.number_of_landmarks_visible = np.sum(self.landmark_show)
+
+
+    def xform_voxel_to_origin_coords(self, 
+                                     landmark_voxel_coords: np.ndarray):
+        
+        return landmark_voxel_coords[:, :3] 
+
+
+    def xform_voxel_to_image_coords(self, 
+                                    landmark_voxel_coords: np.ndarray):
+        
+        return (landmark_voxel_coords[:, :3] * self.physical_steps) + self.physical_start - self.physical_center
+    
+
+    def xform_image_to_voxel_coords(self, 
+                                     landmark_image_coords: np.ndarray):
+        
+        return ((landmark_image_coords[:, :3] + self.physical_center) - self.physical_start) / self.physical_steps
+
+
+    def get_landmark_drawing_coords(self, 
+                                    landmark_image_coords: np.ndarray, # x, y, z, hu
+                                    origin_vector: np.ndarray, 
+                                    quaternion, 
+                                    geometry_vector: np.ndarray) -> np.ndarray:
+        
+        """
+        We store the landmarks using their voxel coordinates, not the image coordinates. 
+        We need to find the drawing coords using the voxel coordinates, which are initially obtained from the 
+        drawing position using VolumeLayer.get_physical_voxel_coords. 
+
+        The math is: 
+
+            physical_coords = image_pos_coords + ctvolume.physical_center
+            voxel_coords    = (physical_coords - ctvolume.physical_start) / ctvolume.pixel_steps
+                            = ((image_pos_coords + ctvolume.physical_center) - ctvolume.physical_start) / ctvolume.pixel_steps
+
+        So we need to extract the image_pos_coords:
+            image_pos_coords = (voxel_coords * ctvolume.pixel_steps) + ctvolume.physical_start - ctvolume.physical_center
+
+        """
+
+        shift = quaternion.inverse.rotate(landmark_image_coords[:, :3] - origin_vector)
+        shift[:, :2] *= geometry_vector[:2]
+        landmark_start_coords = np.array([self.texture_center, self.texture_center, 0.0])
+        landmark_drawing_coords = landmark_start_coords + shift
+        
+        return landmark_drawing_coords
+
 
     def update_landmarks(self, 
                          origin_vector: np.ndarray,
@@ -266,11 +329,42 @@ class Landmarks(object):
 
         pass
 
-
-    def load_landmarks(self, 
-                       file_path: Path):
+    def load_landmark_data(self, 
+                           current_origin,
+                           current_quaternion,
+                           current_geometry,
+                           file_path: Path) -> dict:
         
-        pass
+        data_dict = self.read_landmark_csv(file_path)
+
+        if data_dict['n_landmarks'] == 0:
+            print('Landmarks Message: No Landmarks to Load')
+            return False
+
+        # data should be of shape (n_landmarks, 14)
+        data = data_dict['data'] #vx, vy, vz, hu, nz, ny, nz, qa, qb, qc, qd, px, py, pz
+
+        loaded_data = {'image_coords': np.zeros((len(data), 4), dtype = np.float32),
+                       'voxel_coords': np.zeros((len(data), 3), dtype = np.float32),
+                       'drawing_coords': np.zeros((len(data), 3), dtype = np.float32),
+                       'norms': np.zeros((len(data), 3), dtype = np.float32),
+                       'quaternions': np.zeros((len(data), 4), dtype = np.float32),
+                       'geometries': np.zeros((len(data), 3), dtype = np.float32)}
+
+        loaded_data['voxel_coords'] = data[:, :4]
+        loaded_data['norms'] = data[:, 4:7]
+        loaded_data['quaternions'] = data[:, 7:11]
+        loaded_data['geometries'] = data[:, 11:]
+
+        loaded_data['image_coords'][:, 3] = 1.0 * loaded_data['voxel_coords'][:, 3]
+        loaded_data['image_coords'][:,:3] = self.xform_voxel_to_image_coords(loaded_data['voxel_coords'])
+        loaded_data['drawing_coords'][:] = self.get_landmark_drawing_coords(loaded_data['image_coords'], 
+                                                                            current_origin,
+                                                                            current_quaternion, 
+                                                                            current_geometry)
+
+        return loaded_data
+        
 
     def format_landmark_header_line(self, 
                                     header_line: str):
@@ -303,11 +397,13 @@ class Landmarks(object):
                           data_header: str,
                           data: np.ndarray,
                           mode = 'w'):
-        lines = f'#{vol_name}\n#{affine.tolist()}\n{self.format_landmark_header_line(data_header)}\n'
+        
+        n_landmarks = len(data)
+
+        lines = f'#{vol_name}\n#{affine.tolist()}\n#{n_landmarks}\n{self.format_landmark_header_line(data_header)}\n'
 
         for landmark_data in data:
             lines = f"{lines}{self.format_landmark_data_line(landmark_data)}\n"
-
 
         with open(landmark_file, mode = mode) as file:
             print(lines, file = file, flush = True, end = '')
@@ -320,13 +416,15 @@ class Landmarks(object):
 
         return_dict = {'vol_name': '',
                        'affine': np.eye(4, 4),
+                       'n_landmarks': 0,
                        'data_header': [],
                        'data': []}
         
         with open(landmark_file) as file:
         
             return_dict['vol_name'] = file.readline().split('#')[1][:-1]
-            affine = file.readline().split('#')[1][:-1].split('affine=')[1]
+            affine = file.readline().split('#')[1][:-1]
+            return_dict['n_landmarks'] = int(file.readline().split('#')[1][:-1])
             stripped_affine = affine.replace(' ', '').lstrip('[').rstrip(']').replace('],[', ' ').split(' ')
             
             for index, s_affine in enumerate(stripped_affine):
@@ -336,7 +434,7 @@ class Landmarks(object):
             for data_line in file:
                 return_dict['data'].append(np.fromstring(data_line[:-1], sep = ','))
         
-        return_dict['data'] = np.array(return_dict['data']).T
+        return_dict['data'] = np.array(return_dict['data'])
 
         return return_dict
     
@@ -344,24 +442,18 @@ class Landmarks(object):
     def save_landmarks(self, 
                        file_path:Path,
                        volume_name: str,
-                       volume_affine: np.ndarray,
-                       extension:str = 'csv'):
+                       volume_affine: np.ndarray):
         
-        if extension not in ['csv', 'txt']:
+        if file_path.suffix not in ['.csv', '.txt']:
             print(f'Landmarks Message: save_landmarks')
-            print(f'\tFile extension {extension} not allowed!')
+            print(f'\tFile extension {file_path.suffix} not allowed!')
 
             return
         
-        file_path:Path = file_path.with_suffix(f'.{extension}')
         landmarks_info_dict = self.get_landmarks_info()
-
-        print(landmarks_info_dict)
 
         data_header = list(landmarks_info_dict.keys())
         landmark_data = np.array(list(landmarks_info_dict.values())).T
-
-        print(landmark_data)
         
         self.save_landmark_csv(file_path, 
                                volume_name,
