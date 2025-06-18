@@ -104,6 +104,9 @@ class Landmarks(object):
                 Show or hide the landmark
                 Default is True. 
         """
+        # self.landmark_image_coords[self.landmark_index, 0] = image_coords[1]
+        # self.landmark_image_coords[self.landmark_index, 1] = image_coords[0]
+        # self.landmark_image_coords[self.landmark_index, 2] = image_coords[2]
 
         self.landmark_image_coords[self.landmark_index, :3] = image_coords[:]
         self.landmark_image_coords[self.landmark_index, 3] = image_coords_hu
@@ -276,10 +279,13 @@ class Landmarks(object):
 
     def get_last_landmark(self) -> list:
         if self.landmark_index > 0:
+            landmark_x = self.landmark_image_coords[self.landmark_index - 1, 0].round(3)
+            landmark_y = self.landmark_image_coords[self.landmark_index - 1, 1].round(3)
+            landmark_z = self.landmark_image_coords[self.landmark_index - 1, 2].round(3)
 
             landmark_info_list = [self.volume_name, 
                     self.landmark_index - 1, 
-                    self.landmark_image_coords[self.landmark_index - 1].round(3), 
+                    self.landmark_image_coords[self.landmark_index - 1, :].round(3), 
                     self.landmark_last_tag,
                     self.get_patch_tag(self.landmark_last_tag),
                     self.landmark_patches[self.get_patch_tag(self.landmark_last_tag)]]
@@ -305,9 +311,9 @@ class Landmarks(object):
         """
         Returns landmarks_info_dict
         """
-        landmarks_info_dict = {'x': self.landmark_voxel_coords.round(3)[self.landmark_valid_indices, 1],
-                               'y': self.landmark_voxel_coords.round(3)[self.landmark_valid_indices, 0], 
-                               'z': self.landmark_voxel_coords.round(3)[self.landmark_valid_indices, 2],
+        landmarks_info_dict = {'x': self.landmark_image_coords.round(3)[self.landmark_valid_indices, 1],
+                               'y': -1.0*self.landmark_image_coords.round(3)[self.landmark_valid_indices, 0] + 0.0, 
+                               'z': self.landmark_image_coords.round(3)[self.landmark_valid_indices, 2],
                                'hu': self.landmark_image_coords.round(3)[self.landmark_valid_indices, 3],
                                'norm_x': self.landmark_norms.round(3)[self.landmark_valid_indices, 0],
                                'norm_y': self.landmark_norms.round(3)[self.landmark_valid_indices, 1],
@@ -356,8 +362,12 @@ class Landmarks(object):
         loaded_data['quaternions'] = data[:, 7:11]
         loaded_data['geometries'] = data[:, 11:]
 
-        loaded_data['image_coords'][:, 3] = 1.0 * loaded_data['voxel_coords'][:, 3]
-        loaded_data['image_coords'][:,:3] = self.xform_voxel_to_image_coords(loaded_data['voxel_coords'])
+        loaded_data['image_coords'][:,1] = 1.0 * loaded_data['voxel_coords'][:,0] + 0.0
+        loaded_data['image_coords'][:,0] = -1.0 * loaded_data['voxel_coords'][:,1] + 0.0
+        loaded_data['image_coords'][:,2] = 1.0 * loaded_data['voxel_coords'][:,2] + 0.0
+        loaded_data['image_coords'][:,3] = 1.0 * loaded_data['voxel_coords'][:,3] + 0.0
+        # loaded_data['image_coords'][:,:3] = self.xform_voxel_to_image_coords(loaded_data['voxel_coords'])
+        # loaded_data['image_coords'][:,1] *= -1.0 + 0.0
         loaded_data['drawing_coords'][:] = self.get_landmark_drawing_coords(loaded_data['image_coords'], 
                                                                             current_origin,
                                                                             current_quaternion, 

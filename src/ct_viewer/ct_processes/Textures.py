@@ -15,6 +15,7 @@ class Texture(object):
     np_to_cp = lambda x: cp.asarray(x) if G.GPU_MODE else lambda x: x
 
     def __init__(self, 
+                 volume_name: str, 
                  ct_volume: CTVolume.CTVolume, 
                  drawlist_tag: str,
                  instantiate_texture: bool = False):
@@ -22,6 +23,7 @@ class Texture(object):
             cp.cuda.Device(G.DEVICE).use()
             print(f'Textures Message: Using CUDA device {G.DEVICE}.')
 
+        self.name = create_tag(f'{volume_name}', 'Texture', '')
         self.ct_volume = ct_volume
         self.texture_dim = G.TEXTURE_DIM # ct_volume.texture_dim
         self.shape = [self.texture_dim, self.texture_dim]
@@ -374,6 +376,7 @@ class Texture(object):
                        )
         
     def _cleanup_(self):
+        print(f'Cleanup: {self.name}')
         dict_keys = list(self.__dict__.keys())
         while len(dict_keys) > 0:
             attrib_key = dict_keys.pop()

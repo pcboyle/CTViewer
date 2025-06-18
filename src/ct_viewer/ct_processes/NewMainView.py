@@ -9,12 +9,12 @@ class MainView:
     mode_number = lambda x: getattr(cp, x.__str__()) if G.GPU_MODE else getattr(np, x.__str__())\
     
     def __init__(self, 
-                 volume_layer_groups:VolumeLayer.VolumeLayerGroups):
+                 VolumeLayerGroups:VolumeLayer.VolumeLayerGroups):
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
             print(f'MainView Message: Using CUDA device {G.DEVICE}.')
 
-        self.volume_layer_groups:VolumeLayer.VolumeLayerGroups = volume_layer_groups
+        self.VolumeLayerGroups:VolumeLayer.VolumeLayerGroups = VolumeLayerGroups
         self.window_tag:str = ''
         self.drawlist_texture_tag:str = ''
         self.drawlist_colorbar_tag:str = ''
@@ -148,21 +148,22 @@ class MainView:
                               mouse_text_box_start[1] + text_box_height]
         mouse_text_start = [mouse_text_box_start[0] + 5,
                             mouse_text_box_start[1] + 5]
-
-        with dpg.draw_layer(parent = self.drawlist_texture_tag,
-                            tag = self.mouse_pos_draw_layer_tag):
-            initial_text_mouse = \
+        initial_mouse_text = \
 """                    (X    , Y    , Z    , HU   )
 Texture Position  : (0.000, 0.000)
 Physical Position : (0.000, 0.000, 0.000)
 Voxel Position    : (0.000, 0.000, 0.000)
 Mouse Position    : (0.000, 0.000, 0.000, 0.000)"""
+        with dpg.draw_layer(parent = self.drawlist_texture_tag,
+                            tag = self.mouse_pos_draw_layer_tag,
+                            user_data = initial_mouse_text):
+
             dpg.draw_rectangle(mouse_text_box_start, 
                                mouse_text_box_end, 
                                color = (0, 0, 0, text_box_alpha), 
                                fill = (0, 0, 0, text_box_alpha))
             dpg.draw_text(mouse_text_start, 
-                          initial_text_mouse, 
+                          initial_mouse_text, 
                           user_data = mouse_text_start,
                           tag = self.mouse_pos_texture_info_text, 
                           size = 14)
@@ -175,15 +176,16 @@ Mouse Position    : (0.000, 0.000, 0.000, 0.000)"""
                                   crosshair_text_box_start[1] + text_box_height]
         crosshair_text_start = [crosshair_text_box_start[0] + 5,
                                 crosshair_text_box_start[1] + 5]
-
-        with dpg.draw_layer(parent = self.drawlist_texture_tag,
-                            tag = self.crosshair_pos_draw_layer_tag):
-            initial_text_crosshair = \
+        initial_text_crosshair = \
 """                    (X    , Y    , Z    , HU   )
 Texture Position  : (0.000, 0.000)
 Physical Position : (0.000, 0.000, 0.000)
 Voxel Position    : (0.000, 0.000, 0.000)
 Crosshair Position: (0.000, 0.000, 0.000, 0.000)"""
+        with dpg.draw_layer(parent = self.drawlist_texture_tag,
+                            tag = self.crosshair_pos_draw_layer_tag,
+                            user_data = initial_text_crosshair):
+
             dpg.draw_rectangle(crosshair_text_box_start, 
                                crosshair_text_box_end, 
                                color = (0, 0, 0, text_box_alpha), 

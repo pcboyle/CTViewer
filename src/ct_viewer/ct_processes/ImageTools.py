@@ -8,7 +8,7 @@ class ImageTools:
     """
     
     def __init__(self, 
-                 volume_layer_groups:VolumeLayer.VolumeLayerGroups, 
+                 VolumeLayerGroups:VolumeLayer.VolumeLayerGroups, 
                  tab = ''):
 
         self.operation_dict = {'Mean': 'mean',
@@ -20,7 +20,7 @@ class ImageTools:
             cp.cuda.Device(G.DEVICE).use()
             
         self.tag_list = []
-        self.volume_layer_groups:VolumeLayer.VolumeLayerGroups = volume_layer_groups
+        self.VolumeLayerGroups:VolumeLayer.VolumeLayerGroups = VolumeLayerGroups
         self.options_panel = None
         self.landmark_radius = 1*float(G.CONFIG_DICT['landmark_settings']['circle_radius'])
 
@@ -232,7 +232,7 @@ class ImageTools:
 
     def update_landmark_colors(self):
         # print(f'ImageTools Message: {dpg.get_value("landmark_color_picker") = }, {dpg.get_value("landmark_opacity_factor_input") = }')
-        self.volume_layer_groups.update_landmark_colors()
+        self.VolumeLayerGroups.update_landmark_colors()
 
     def update_landmark_radius(self, sender, app_data):
         self.landmark_radius = 1*app_data
@@ -267,7 +267,7 @@ class ImageTools:
 
     def update_operation(self):
         self.options_panel.update_volume(None, None, False)
-        # self.volume_layer_groups.update_operation(self.get_operation_info())
+        # self.VolumeLayerGroups.update_operation(self.get_operation_info())
 
 
     def update_selector_lists(self, volume_names: list[str]):

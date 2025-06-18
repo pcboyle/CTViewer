@@ -20,11 +20,6 @@ class InformationBox(object):
                               height = G.CONFIG_DICT['app_settings']['info_box_height']): #G.INFORMATION_BOX_WINDOW_DEFAULTS['WINDOW_HEIGHT']):
             with dpg.tab_bar(tag = 'InfoBox_TabBar'):
                 dpg.add_tab(label = 'Landmarks', tag = 'landmark_tab')
-                # with dpg.tab(label = 'Landmarks', tag = 'landmark_tab'):
-                #     dpg.add_button(label = 'Save Landmarks', tag = 'save_landmarks_button', 
-                #                    callback = self.save_landmarks, enabled=False)
-                #     dpg.add_button(label = 'Load Landmarks', tag = 'load_landmarks_button', 
-                #                    callback = self.load_landmarks, enabled=False)
 
                 with dpg.tab(label = 'Group Tab', tag = 'InfoBoxTab_groups'):
                     dpg.add_text(self.group_text, 
@@ -209,16 +204,6 @@ class InformationBox(object):
     def update_layer_tab(self):
         pass
 
-
-    def save_landmarks(self):
-        print('InformationBox Message: save_landmarks')
-        self.VolumeLayerGroups.save_landmarks()
-
-
-    def load_landmarks(self, sender, app_data):
-        print('InformationBox Message: load_landmarks')
-        self.VolumeLayerGroups.load_landmarks()
-
         
     def initialize_landmark_tables(self, volume_names):
         with dpg.mutex():
@@ -267,9 +252,9 @@ class InformationBox(object):
                 # dpg.add_selectable(label = f'{landmark_coords[0]:>7.2f}, {landmark_coords[1]:>7.2f}, {landmark_coords[2]:>7.2f}, {landmark_coords[3]:>7.2f}', 
                 #                    span_columns=True,
                 #                    tag = f'{volume_name}_landmark_{landmark_index}_selectable')
-                dpg.add_selectable(label = f'{landmark_coords[0]:>7.2f}',
-                                span_columns = True)
                 dpg.add_selectable(label = f'{landmark_coords[1]:>7.2f}',
+                                span_columns = True)
+                dpg.add_selectable(label = f'{-1.0 * landmark_coords[0] + 0.0:>7.2f}',
                                 span_columns = True)
                 dpg.add_selectable(label = f'{landmark_coords[2]:>7.2f}',
                                 span_columns = True)

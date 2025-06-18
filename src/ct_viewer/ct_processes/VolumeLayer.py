@@ -123,7 +123,8 @@ class VolumeLayer(object):
                                                                  volume_file = self.file,
                                                                  max_landmarks = 2**16)
 
-        self.Texture: Textures.Texture = Textures.Texture(self.CTVolume, 
+        self.Texture: Textures.Texture = Textures.Texture(self.name,
+                                                          self.CTVolume, 
                                                           create_tag('NewMainView', 
                                                                      'DrawList', 
                                                                      'TextureDrawList'))
@@ -248,7 +249,7 @@ class VolumeLayer(object):
         patch_widths = []
 
         orientation_info = {'origin_x': loaded_landmark_data['image_coords'][0, 1].item(),
-                            'origin_y': loaded_landmark_data['image_coords'][0, 0].item(), 
+                            'origin_y': -1.0*loaded_landmark_data['image_coords'][0, 0].item(), 
                             'origin_z': loaded_landmark_data['image_coords'][0, 2].item(),
                             'norm': loaded_landmark_data['norms'][0],
                             'pitch': loaded_landmark_data['quaternions'][0],
@@ -263,15 +264,15 @@ class VolumeLayer(object):
         for landmark_index in range(loaded_landmark_data['image_coords'].shape[0]):
             quaternion = qtn.array(loaded_landmark_data['quaternions'][landmark_index])
             yaw, pitch, roll = quaternion.to_axis_angle
-            orientation_info['origin_x'] = loaded_landmark_data['image_coords'][landmark_index, 0].item()
-            orientation_info['origin_y'] = loaded_landmark_data['image_coords'][landmark_index, 1].item()
+            orientation_info['origin_x'] = loaded_landmark_data['image_coords'][landmark_index, 1].item()
+            orientation_info['origin_y'] = -1.0*loaded_landmark_data['image_coords'][landmark_index, 0].item()
             orientation_info['origin_z'] = loaded_landmark_data['image_coords'][landmark_index, 2].item()
             orientation_info['norm'] = 0.0
             orientation_info['pitch'] = pitch.item()
             orientation_info['yaw'] = yaw.item()
             orientation_info['roll'] = roll.item()
-            orientation_info['pixel_spacing_x'] = loaded_landmark_data['geometries'][landmark_index, 0].item()
-            orientation_info['pixel_spacing_y'] = loaded_landmark_data['geometries'][landmark_index, 1].item()
+            orientation_info['pixel_spacing_x'] = loaded_landmark_data['geometries'][landmark_index, 1].item()
+            orientation_info['pixel_spacing_y'] = loaded_landmark_data['geometries'][landmark_index, 0].item()
             orientation_info['slice_thickness'] = loaded_landmark_data['geometries'][landmark_index, 2].item()
             orientation_info['drawlayer_tag'] = self.Orientation.drawlayer.current_value
             
@@ -713,7 +714,8 @@ class VolumeLayer(object):
         return
     
     def delete_texture(self):
-        self.Texture.delete_texture()
+        if 'Texture' in dir(self):
+            self.Texture.delete_texture()
 
     def remove_texture_from_drawlist(self):
         self.Texture.delete_drawn_texture()
@@ -948,9 +950,11 @@ class VolumeLayer(object):
         attrib_list = list(self.__dict__.keys())
         while len(attrib_list) > 0:
             attrib_name = attrib_list.pop()
-            if attrib_name == 'group':
-                setattr(self, attrib_name, None)
-                delattr(self, attrib_name)
+            # if attrib_name == 'group':
+            #     setattr(self, attrib_name, None)
+            #     delattr(self, attrib_name)
+            if attrib_name == 'Group':
+                continue
 
             elif '_cleanup_' in dir(getattr(self, attrib_name)):
                 try:
@@ -1285,6 +1289,7 @@ class VolumeLayerGroup(object):
         print(f'VolumeLayer Message: Removing {volume_name} from Group {self.group_name}.')
         # Doing this so we can simply use this function in remove_all_volumes below.
         if volume_name in self.volume_names:
+
             self.get_volume_by_name(volume_name).delete_texture()
             self.get_volume_by_name(volume_name)._cleanup_()
             self.volume_names.remove(volume_name)
@@ -1816,7 +1821,7 @@ class VolumeLayerGroups(object):
         texture_position_string =       f'Texture Position  : ({draw_x:.2f}, {draw_y:.2f})'
         physical_coords_string =        f'Physical Position : ({physical_coords[1]:.2f}, {physical_coords[0]:.2f}, {physical_coords[2]:.2f})'
         physical_voxel_coords_string =  f'Voxel Position    : ({physical_voxel_coords[1]:.2f}, {physical_voxel_coords[0]:.2f}, {physical_voxel_coords[2]:.2f})'
-        position_coords_string =        f'{position_id_string:<18}: ({coords[1]:.2f}, {coords[0]:.2f}, {coords[2]:.2f}, {coords_hu:.2f})'
+        position_coords_string =        f'{position_id_string:<18}: ({coords[1]:.2f}, {-1.0*coords[0] + 0.0:.2f}, {coords[2]:.2f}, {coords_hu:.2f})'
         display_text = f'{display_text}\n{texture_position_string}\n{physical_coords_string}\n{physical_voxel_coords_string}\n{position_coords_string}'
 
         return display_text
