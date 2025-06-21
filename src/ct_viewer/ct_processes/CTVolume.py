@@ -98,8 +98,8 @@ class CTVolume(object):
         self.step_directions:np.ndarray = np.sign(self.pixel_steps, dtype = np.float32)
         self.physical_shape:np.ndarray = np.array([x.item() for x in np.abs(self.pixel_steps)*np.array(self.volume.shape)], dtype = np.float32)
         self.physical_start:np.ndarray = np.array([x.item() for x in self.affine[:3,3]], dtype = np.float32)
-        self.physical_stop:np.ndarray = self.physical_start + self.step_directions*self.physical_shape
-        self.physical_center:np.ndarray = self.physical_start + (self.physical_stop - self.physical_start)/2.0
+        self.physical_stop:np.ndarray = self.physical_start + self.step_directions * (self.physical_shape - self.pixel_dims)
+        self.physical_center:np.ndarray = (self.physical_start + self.physical_stop)/2.0
         self.physical_steps:np.ndarray = np.array(self.pixel_steps, dtype = np.float32)
         self.shape:np.ndarray = np.array(self.volume.shape)
         self.corners = {'Right-Anterior-Inferior': [],
@@ -178,13 +178,13 @@ class CTVolume(object):
         self.bin_edges = None
         
         self.initialize_image_coords()
-        self.set_volume_interpolator(self.volume, 
-                                     self.physical_start,
-                                     self.physical_stop,
-                                     self.pixel_steps)
-        self.set_mask_interpolator(self.physical_start,
-                                   self.physical_stop,
-                                   self.pixel_steps)
+        # self.set_volume_interpolator(self.volume, 
+        #                              self.physical_start,
+        #                              self.physical_stop,
+        #                              self.pixel_steps)
+        # self.set_mask_interpolator(self.physical_start,
+        #                            self.physical_stop,
+        #                            self.pixel_steps)
 
         print(f'CTVolume Message: {name = }, {self.shape = }, {G.TEXTURE_DIM = }, {G.TEXTURE_CENTER = }')
 
@@ -217,7 +217,7 @@ class CTVolume(object):
             self.trans_coord_grid_list.append(list(range(min_coord, max_coord)))
 
     #TODO: Replace interpolator with a call to ndi.map_coordinates call. 
-    def interpolate(self, coords, order = 1, out_array = None):
+    def interpolate_volume(self, coords, order = 1, out_array = None):
         """
         Coords are in the shape of: 
 
@@ -230,6 +230,20 @@ class CTVolume(object):
         
         else:
             ndi.map_coordinates(self.volume, coords, order = order, output=out_array, cval=cp.nan)
+
+    def interpolate_mask(self, coords, order = 1, out_array = None):
+        """
+        Coords are in the shape of: 
+
+            [3, xdim, ydim, zdim]
+
+        """
+
+        if type(out_array) == type(None):
+            return ndi.map_coordinates(self.mask, coords, order = order, cval=cp.nan)
+        
+        else:
+            ndi.map_coordinates(self.mask, coords, order = order, output=out_array, cval=cp.nan)
 
     def set_volume_interpolator(self, 
                                 volume: np.ndarray|cp.ndarray, 

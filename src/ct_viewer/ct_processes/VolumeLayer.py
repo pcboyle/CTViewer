@@ -101,8 +101,8 @@ class VolumeLayer(object):
         self.TextureHistogram: OptionValue.HistogramInfo = OptionValue.HistogramInfo(default_histogram = default_histogram)
 
         self.ViewPlane: OptionValue.ViewPlane = self.Orientation.view_plane
-        self.interpolator: RegularGridInterpolator = self.CTVolume.interpolator
-        self.mask_interpolator = self.CTVolume.mask_interpolator
+        # self.interpolator: RegularGridInterpolator = self.CTVolume.interpolator
+        # self.mask_interpolator = self.CTVolume.mask_interpolator
         self.volume_center = self.CTVolume.volume_center
         self.volume_shape = self.CTVolume.shape
         self.texture_dim = G.TEXTURE_DIM # self.CTVolume.texture_dim
@@ -755,34 +755,62 @@ class VolumeLayer(object):
 
         if type(out_array) == type(None):
 
-            return self.CTVolume.interpolate(view_plane, 
+            return self.CTVolume.interpolate_volume(view_plane, 
                                              order = order)
 
          
         else:
             if type(out_mask) == type(None):
-                out_array[:] = self.CTVolume.interpolate(view_plane, 
+                out_array[:] = self.CTVolume.interpolate_volume(view_plane, 
                                                          order = order).reshape(out_array.shape)[:]
                 
             else:
-                out_array[out_mask] = self.CTVolume.interpolate(view_plane, 
+                out_array[out_mask] = self.CTVolume.interpolate_volume(view_plane, 
                                                                 order = order).reshape(out_array.shape)[out_mask]
 
-    
     def interpolate_mask(self, 
                          out_array = None, 
                          out_mask = None, 
-                         view_plane = None):
+                         view_plane = None, 
+                         interpolation_method: str = dpg.get_value('interpolation_combo_box')):
+        """
+        
+        """
+
+        order_dict = {'Nearest Neighbor': 0,
+                      'Linear': 1}
+        
+        order = order_dict[interpolation_method]
+
         if type(out_array) == type(None):
-            return self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
-                                      method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:]
+
+            return self.CTVolume.interpolate_mask(view_plane, 
+                                                  order = order)
+
+         
         else:
             if type(out_mask) == type(None):
-                out_array[:] = self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
-                                                      method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:].reshape(out_array.shape)
+                out_array[:] = self.CTVolume.interpolate_mask(view_plane, 
+                                                              order = order).reshape(out_array.shape)[:]
+                
             else:
-                out_array[out_mask] = self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
-                                                             method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:].reshape(out_array.shape)[out_mask]
+                out_array[out_mask] = self.CTVolume.interpolate_mask(view_plane, 
+                                                                     order = order).reshape(out_array.shape)[out_mask]
+                
+    # def interpolate_mask(self, 
+    #                      out_array = None, 
+    #                      out_mask = None, 
+    #                      view_plane = None):
+    #     if type(out_array) == type(None):
+    #         return self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
+    #                                   method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:]
+    #     else:
+    #         if type(out_mask) == type(None):
+    #             out_array[:] = self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
+    #                                                   method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:].reshape(out_array.shape)
+    #         else:
+    #             out_array[out_mask] = self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
+    #                                                          method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:].reshape(out_array.shape)[out_mask]
     
     def print_orientation_value(self, value: str, check_control = True):
         """
@@ -885,7 +913,7 @@ class VolumeLayer(object):
                                 bin_step = bin_step)
             
             if histogram_type == 'volume':
-                histogram.update_histogram_counts(self.interpolator.values[~self.mask_interpolator.values.astype(bool)])
+                histogram.update_histogram_counts(self.CTVolume.volume[~self.CTVolume.mask.astype(bool)])
 
             else: 
                 histogram.update_histogram_counts(self.Texture.get_texture_content(exclude_nan = True, rescale = True))
@@ -916,7 +944,7 @@ class VolumeLayer(object):
             self.VolumeHistogram.update_histogram_params(min_value = bin_min, 
                                                           max_value = bin_max, 
                                                           bin_step = bin_step)
-            self.VolumeHistogram.update_histogram_counts(self.interpolator.values[~self.mask_interpolator.values.astype(bool)])
+            self.VolumeHistogram.update_histogram_counts(self.CTVolume.volume[~self.CTVolume.mask.astype(bool)])
         
         return self.VolumeHistogram.get_histogram(return_order = return_order, asnumpy = asnumpy)
 

@@ -2,18 +2,26 @@ from .Globals import *
 from . import VolumeLayer
 
 class InformationBox(object):
-    def __init__(self, VolumeLayerGroups: VolumeLayer.VolumeLayerGroups):
+    def __init__(self, 
+                 VolumeLayerGroups: VolumeLayer.VolumeLayerGroups):
         
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
 
         self.group_text = ''
         self.items = []
-        self.landmark_circles = []
         self.aliases = []
         self.infobox_options = []
         self.landmark_volumes = []
+        self.handler_list = []
         self.VolumeLayerGroups = VolumeLayerGroups
+
+        dpg.add_item_double_clicked_handler(callback=self.landmark_double_clicked, 
+                                            user_data = None, 
+                                            tag = 'infomation_box_mouse_double_click_handler',
+                                            parent = G.ITEM_HANDLER_REG_TAG)
+        
+        self.handler_list.append(dpg.last_item())
         
         with dpg.child_window(tag = 'InformationBox_Window',
                               width = G.CONFIG_DICT['app_settings']['info_box_width'], # G.INFORMATION_BOX_WINDOW_DEFAULTS['WINDOW_WIDTH'], 
@@ -154,6 +162,7 @@ class InformationBox(object):
                                              default_value=True, 
                                              callback = self.update_histogram_current_view)
                             self.infobox_options.append(dpg.get_item_alias(dpg.last_item()))
+
                 if G.DEBUG_MODE:
                     with dpg.tab(label = 'Debug Tab'):
                         with dpg.table(header_row = False, tag = 'DEBUG_TABLE', resizable=True):
@@ -248,19 +257,17 @@ class InformationBox(object):
         # print(f'\tlandmark_patch        : {landmark_patch}')
         with dpg.mutex():
             with dpg.table_row(parent=f'{volume_name}_landmarks_table', 
-                            tag = f'{volume_name}_landmark_{landmark_index}_row'):
-                # dpg.add_selectable(label = f'{landmark_coords[0]:>7.2f}, {landmark_coords[1]:>7.2f}, {landmark_coords[2]:>7.2f}, {landmark_coords[3]:>7.2f}', 
-                #                    span_columns=True,
-                #                    tag = f'{volume_name}_landmark_{landmark_index}_selectable')
+                               tag = f'{volume_name}_landmark_{landmark_index}_row', 
+                               user_data = landmark_coords):
                 dpg.add_selectable(label = f'{landmark_coords[1]:>7.2f}',
-                                span_columns = True)
+                                   span_columns = True)
                 dpg.add_selectable(label = f'{-1.0 * landmark_coords[0] + 0.0:>7.2f}',
-                                span_columns = True)
+                                   span_columns = True)
                 dpg.add_selectable(label = f'{landmark_coords[2]:>7.2f}',
-                                span_columns = True)
+                                   span_columns = True)
                 dpg.add_selectable(label = f'{landmark_coords[3]:>7.2f}',
-                                span_columns = True)
-                # self.items.append(f'{volume_name}_landmark_{landmark_index}_selectable')
+                                   span_columns = True)
+                
                 self.items.append(f'{volume_name}_landmark_{landmark_index}_row')
                 
                 with dpg.popup(dpg.last_item(), 
@@ -283,7 +290,7 @@ class InformationBox(object):
                                 tag = f'remove++{volume_name}++landmark++{landmark_index}', 
                                 callback = self.delete_landmark)
                     self.items.append(f'remove++{volume_name}++landmark++{landmark_index}')
-
+            dpg.bind_item_handler_registry()
 
     def delete_landmark(self, sender, app_data, user_data):
         volume_name, landmark_id = user_data
@@ -301,7 +308,15 @@ class InformationBox(object):
         dpg.delete_item(popup_id)
 
         print(f'InformationBox Message: Deleted {volume_name}_landmark_{landmark_index}_circle')
-    
+
+
+    def landmark_double_clicked(self, sender, app_data, user_data):
+        if self.VolumeLayerGroups.active:
+            print('InformationBox Message: Item Double Clicked')
+            print(f'\t{sender    = }')
+            print(f'\t{app_data  = }')
+            print(f'\t{user_data = }')
+
 
     def reset_histogram_plot(self):
         dpg.hide_item('InfoBoxTab_histogram_volume_plot_line_series')
@@ -342,11 +357,16 @@ class InformationBox(object):
     def enable_options(self):
         for option_tag in self.infobox_options:
             dpg.enable_item(option_tag)
-    
+
+        for handler in self.handler_list:
+            dpg.show_item(handler)
 
     def disable_options(self):
         for option_tag in self.infobox_options:
             dpg.disable_item(option_tag)
+
+        for handler in self.handler_list:
+            dpg.hide_item(handler)
 
     def _cleanup_(self):
         pass

@@ -106,6 +106,7 @@ class CTViewer:
         dpg.add_item_hover_handler(parent = self.item_hovered_registry, 
                                    user_data = self.DrawWindow.return_mouse_pos_texture_info_text_tag(),
                                    callback = self.VolumeLayerGroups.update_mouse_volume_coord_info)
+        
         dpg.bind_item_handler_registry(self.DrawWindow.return_texture_drawlist_tag(self.DrawWindow.window_tag),
                                        self.item_hovered_registry)
         

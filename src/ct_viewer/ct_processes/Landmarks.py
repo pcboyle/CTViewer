@@ -32,7 +32,7 @@ class Landmarks(object):
         self.landmarks_table = f'{volume_name}_landmarks_table'
 
         self.landmark_image_coords = np.zeros((self.max_landmarks, 4), dtype = np.float32) #(x, y, z, hu), obtained using VolumeLayerGroups.get_drawing_pos_coords
-        self.landmark_physical_coords = np.zeros((self.max_landmarks, 4), dtype = np.float32) # Position in physical mm space, get_physical_pos_coords 
+        self.landmark_physical_coords = np.zeros((self.max_landmarks, 4), dtype = np.float32) # Position in physical mm space, get_physical_pos_coords
         self.landmark_voxel_coords = np.zeros((self.max_landmarks, 3), dtype = np.float32) # Actual position in image voxel index space, get_physical_voxel_coords
         self.landmark_drawing_coords = np.zeros((self.max_landmarks, 3), dtype = np.float32) #(x, y, unscaled distance)
         self.landmark_distances = np.zeros(self.max_landmarks, dtype = np.float32) # Scaled distances
@@ -279,16 +279,13 @@ class Landmarks(object):
 
     def get_last_landmark(self) -> list:
         if self.landmark_index > 0:
-            landmark_x = self.landmark_image_coords[self.landmark_index - 1, 0].round(3)
-            landmark_y = self.landmark_image_coords[self.landmark_index - 1, 1].round(3)
-            landmark_z = self.landmark_image_coords[self.landmark_index - 1, 2].round(3)
 
             landmark_info_list = [self.volume_name, 
-                    self.landmark_index - 1, 
-                    self.landmark_image_coords[self.landmark_index - 1, :].round(3), 
-                    self.landmark_last_tag,
-                    self.get_patch_tag(self.landmark_last_tag),
-                    self.landmark_patches[self.get_patch_tag(self.landmark_last_tag)]]
+                                  self.landmark_index - 1, 
+                                  self.landmark_image_coords[self.landmark_index - 1, :].round(3), 
+                                  self.landmark_last_tag,
+                                  self.get_patch_tag(self.landmark_last_tag),
+                                  self.landmark_patches[self.get_patch_tag(self.landmark_last_tag)]]
 
             # print('Landmark Message: get_last_landmark')
             # print(f'\tVolume Name       : {landmark_info_list[0]}')

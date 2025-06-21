@@ -77,6 +77,7 @@ class OptionsPanel:
                                     tag = 'option_panel_mouse_wheel_handler', 
                                     parent = G.HANDLER_REG_TAG)
         self.handler_list.append(dpg.last_item())
+
         dpg.add_item_clicked_handler(button=dpg.mvMouseButton_Right, 
                                      show = False,
                                      callback=self.item_right_clicked, 
@@ -493,9 +494,6 @@ class OptionsPanel:
 
                 delta_mouse_x = mouse_pos[0] - previous_pos[0]
                 delta_mouse_y = mouse_pos[1] - previous_pos[1]
-
-                delta_mouse = [delta_mouse_x,
-                            delta_mouse_y]
                 
                 change_position = False
                 if delta_mouse_x != 0:
@@ -506,11 +504,11 @@ class OptionsPanel:
 
                 if change_position or user_data:
                     dpg.set_item_user_data(sender,
-                                        mouse_pos)
+                                           mouse_pos)
                     
                     previous_mouse_image_coords = self.VolumeLayerGroups.get_drawing_pos_coords(*previous_pos)
                     current_mouse_image_coords = self.VolumeLayerGroups.get_drawing_pos_coords(*mouse_pos)
-                    coord_delta = current_mouse_image_coords - previous_mouse_image_coords
+                    coord_delta = np.round(current_mouse_image_coords - previous_mouse_image_coords, decimals = 0)
                     
                     dpg.set_value("origin_x_slider_current_value", dpg.get_value("origin_x_slider_current_value") - coord_delta[1])
                     dpg.set_value("origin_y_slider_current_value", dpg.get_value("origin_y_slider_current_value") + coord_delta[0])
