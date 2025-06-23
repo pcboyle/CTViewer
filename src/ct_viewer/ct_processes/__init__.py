@@ -84,6 +84,12 @@ class CTViewer:
                             self.DrawWindow.create_draw_window('MainTexture', 
                                                                G.VOLUME_TAB_TAG, 
                                                                item_handler_reg_tag = self.item_hovered_registry)
+                            # self.DrawWindow.create_inset_window('InsetWindow', 
+                            #                                     self.DrawWindow.get_window_tags()[0],
+                            #                                     start = [round((2/3) * G.TEXTURE_DIM), round((2/3) * G.TEXTURE_DIM)],
+                            #                                     stop = [G.TEXTURE_DIM, G.TEXTURE_DIM],
+                            #                                     width = round((1/3) * G.TEXTURE_DIM),
+                            #                                     height = round((1/3) * G.TEXTURE_DIM))
                         with dpg.tab(label = 'Analysis Tab', 
                                      tag = G.ANALYSIS_TAB_TAG):
                             self.AnalysisView = AnalysisView.AnalysisView()
@@ -106,11 +112,12 @@ class CTViewer:
                                    debug = G.DEBUG_MODE)
         
         dpg.add_item_hover_handler(parent = self.item_hovered_registry, 
-                                   user_data = self.DrawWindow.return_mouse_pos_texture_info_text_tag(),
+                                   user_data = self.DrawWindow.return_mouse_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0]),
                                    callback = self.VolumeLayerGroups.update_mouse_volume_coord_info)
         
-        dpg.bind_item_handler_registry(self.DrawWindow.return_texture_drawlist_tag(self.DrawWindow.window_tag),
-                                       self.item_hovered_registry)
+        for tag in self.DrawWindow.get_window_tags():
+            dpg.bind_item_handler_registry(self.DrawWindow.return_texture_drawlist_tag(tag),
+                                        self.item_hovered_registry)
         
         dpg.add_key_press_handler(key = dpg.mvKey_None, 
                                   callback = self.OptionsPanel.mouse_and_keyboard_navigation, 

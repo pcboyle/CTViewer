@@ -584,7 +584,7 @@ class OptionsPanel:
                             'pixel_spacing_x': dpg.get_value('pixel_spacing_x_input'),
                             'pixel_spacing_y': dpg.get_value('pixel_spacing_y_input'),
                             'slice_thickness': dpg.get_value('slice_thickness_input'),
-                            'drawlayer_tag': self.DrawWindow.return_texture_drawlayer_tag(self.DrawWindow.window_tag)}
+                            'drawlayer_tag': self.DrawWindow.return_texture_drawlayer_tag(self.DrawWindow.get_window_tags()[0])}
 
         return orientation_info
     
@@ -597,14 +597,14 @@ class OptionsPanel:
                           'window_size': 1.0,
                           'colormap_rescaled': dpg.get_value('rescale_colormap_checkbox'),
                           'colormap_scale_type': dpg.get_value('colormap_scale_combo'),
-                          'colormap_scale_tag': self.DrawWindow.return_colormap_tag(self.DrawWindow.window_tag)}
+                          'colormap_scale_tag': self.DrawWindow.return_colormap_tag(self.DrawWindow.get_window_tags()[0])}
         
         return intensity_info
     
 
     def get_text_info(self):
-        text_info = {'mouse_pos_text_tag': self.DrawWindow.return_mouse_pos_texture_info_text_tag(self.DrawWindow.window_tag),
-                     'crosshair_pos_text_tag': self.DrawWindow.return_crosshair_pos_texture_info_text_tag(self.DrawWindow.window_tag)}
+        text_info = {'mouse_pos_text_tag': self.DrawWindow.return_mouse_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0]),
+                     'crosshair_pos_text_tag': self.DrawWindow.return_crosshair_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0])}
         return text_info
     
 
@@ -620,7 +620,7 @@ class OptionsPanel:
 
     def update_volume(self, sender, app_data, user_data):
 
-        colorbar_config = dpg.get_item_configuration(self.DrawWindow.return_colormap_tag(self.DrawWindow.window_tag))
+        colorbar_config = dpg.get_item_configuration(self.DrawWindow.return_colormap_tag(self.DrawWindow.get_window_tags()[0]))
 
         control_info = self.get_control_info()
 

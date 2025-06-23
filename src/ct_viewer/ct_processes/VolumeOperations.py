@@ -77,7 +77,7 @@ class VolumeOperations(object):
         """
         self.volume_slab.fill(cp.nan)
         
-        self.volume_slab[:steps] = ctvolume.interpolate(self.interpolation_slab[:, :steps], order = order)
+        self.volume_slab[:steps] = ctvolume.interpolate_volume(self.interpolation_slab[:, :steps], order = order)
 
     def get_operation_volume(self, 
                              ctvolume, 

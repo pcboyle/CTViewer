@@ -16,12 +16,18 @@ class InformationBox(object):
         self.handler_list = []
         self.VolumeLayerGroups = VolumeLayerGroups
         self.OptionsPanel = None
+        self.item_handler_registry = dpg.add_item_handler_registry(tag = create_tag('InformationBox', 'ItemHandlerRegistry', 'DoubleClick'))
 
         dpg.add_item_double_clicked_handler(callback=self.landmark_double_clicked, 
                                             user_data = None,
                                             tag = 'infomation_box_mouse_double_click_handler',
-                                            parent = G.ITEM_HANDLER_REG_TAG)
-        
+                                            parent = self.item_handler_registry)
+        self.handler_list.append(dpg.last_item())
+
+        dpg.add_item_clicked_handler(button=dpg.mvMouseButton_Right,
+                                     callback = self.item_right_clicked,
+                                     tag = 'infomation_box_mouse_right_click_handler',
+                                     parent = self.item_handler_registry)
         self.handler_list.append(dpg.last_item())
         
         with dpg.child_window(tag = 'InformationBox_Window',
@@ -239,7 +245,7 @@ class InformationBox(object):
                                     clipper = True,
                                     scrollY = True):
                             self.items.append(f'{volume_name}_landmarks_table')
-                            dpg.add_table_column(label = ' ', width = 10)
+                            dpg.add_table_column(label = ' ', width = 10, width_fixed = True)
                             dpg.add_table_column(label = f'{"X":^7}') # X
                             dpg.add_table_column(label = f'{"Y":^7}') # Y
                             dpg.add_table_column(label = f'{"Z":^7}') # Z
@@ -273,40 +279,46 @@ class InformationBox(object):
 
                 dpg.add_selectable(label = f'{current_row}', 
                                    span_columns=True, 
+                                   user_data = f'{volume_name}_landmark_{landmark_index}_popup',
                                    tag = f'{volume_name}_landmark_{landmark_index}_row_index')
                 self.items.append(f'{volume_name}_landmark_{landmark_index}_row_index')
 
                 dpg.add_selectable(label = f'{landmark_coords[1]:>7.2f}',
                                    span_columns = True,
+                                   user_data = f'{volume_name}_landmark_{landmark_index}_popup',
                                    tag = f'{volume_name}_landmark_{landmark_index}_row_x')
                 self.items.append(f'{volume_name}_landmark_{landmark_index}_row_x')
 
                 dpg.add_selectable(label = f'{-1.0 * landmark_coords[0] + 0.0:>7.2f}',
                                    span_columns = True,
+                                   user_data = f'{volume_name}_landmark_{landmark_index}_popup',
                                    tag = f'{volume_name}_landmark_{landmark_index}_row_y')
                 self.items.append(f'{volume_name}_landmark_{landmark_index}_row_y')
 
                 dpg.add_selectable(label = f'{landmark_coords[2]:>7.2f}',
                                    span_columns = True,
+                                   user_data = f'{volume_name}_landmark_{landmark_index}_popup',
                                    tag = f'{volume_name}_landmark_{landmark_index}_row_z')
                 self.items.append(f'{volume_name}_landmark_{landmark_index}_row_z')
 
                 dpg.add_selectable(label = f'{landmark_coords[3]:>7.2f}',
                                    span_columns = True,
+                                   user_data = f'{volume_name}_landmark_{landmark_index}_popup',
                                    tag = f'{volume_name}_landmark_{landmark_index}_row_i')
                 self.items.append(f'{volume_name}_landmark_{landmark_index}_row_i')
                 
                 with dpg.popup(dpg.last_item(), 
-                            mousebutton = dpg.mvMouseButton_Right, 
-                            min_size = [15, 15]):
+                               mousebutton = dpg.mvMouseButton_Right, 
+                               min_size = [15, 15], 
+                               tag = f'{volume_name}_landmark_{landmark_index}_popup'):
                     with dpg.drawlist(height = 115, 
                                     width = 115, 
                                     tag = f'{landmark_id}||PatchDrawList'):
                         dpg.add_static_texture(width = landmark_patch[0], 
-                                            height = landmark_patch[0],
-                                            default_value = landmark_patch[1],
-                                            tag = landmark_patch_id,
-                                            parent = texture_registry)
+                                               height = landmark_patch[0],
+                                               default_value = landmark_patch[1],
+                                               tag = landmark_patch_id,
+                                               parent = texture_registry)
                         dpg.draw_image(landmark_patch_id,
                                     pmin = [0, 0], 
                                     pmax = [115, 115])
@@ -318,7 +330,7 @@ class InformationBox(object):
                     self.items.append(f'remove++{volume_name}++landmark++{landmark_index}')
 
             for row_child in dpg.get_item_children(f'{volume_name}_landmark_{landmark_index}_row', 1):
-                dpg.bind_item_handler_registry(row_child, G.ITEM_HANDLER_REG_TAG)
+                dpg.bind_item_handler_registry(row_child, self.item_handler_registry)
 
     def delete_landmark(self, sender, app_data, user_data):
         volume_name, landmark_id = user_data
@@ -337,6 +349,18 @@ class InformationBox(object):
 
         print(f'InformationBox Message: Deleted {volume_name}_landmark_{landmark_index}_circle')
 
+    def item_right_clicked(self, sender, app_data, user_data):
+        if self.VolumeLayerGroups.active:
+            _, row_child = app_data
+        
+            popup_id = dpg.get_item_user_data(row_child)
+            with dpg.mutex():
+                if dpg.get_item_pos(popup_id) != dpg.get_mouse_pos(local=False):
+                    dpg.set_item_pos(popup_id, dpg.get_mouse_pos(local=False))
+                if dpg.is_item_shown(popup_id):
+                    dpg.hide_item(popup_id)
+                if not dpg.is_item_shown(popup_id):
+                    dpg.show_item(popup_id)
 
     def landmark_double_clicked(self, sender, app_data, user_data):
         if self.VolumeLayerGroups.active:

@@ -763,12 +763,11 @@ class VolumeLayer(object):
 
             return self.CTVolume.interpolate_volume(view_plane, 
                                              order = order)
-
          
         else:
             if type(out_mask) == type(None):
                 out_array[:] = self.CTVolume.interpolate_volume(view_plane, 
-                                                         order = order).reshape(out_array.shape)[:]
+                                                                order = order).reshape(out_array.shape)[:]
                 
             else:
                 out_array[out_mask] = self.CTVolume.interpolate_volume(view_plane, 
@@ -803,21 +802,6 @@ class VolumeLayer(object):
                 out_array[out_mask] = self.CTVolume.interpolate_mask(view_plane, 
                                                                      order = order).reshape(out_array.shape)[out_mask]
                 
-    # def interpolate_mask(self, 
-    #                      out_array = None, 
-    #                      out_mask = None, 
-    #                      view_plane = None):
-    #     if type(out_array) == type(None):
-    #         return self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
-    #                                   method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:]
-    #     else:
-    #         if type(out_mask) == type(None):
-    #             out_array[:] = self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
-    #                                                   method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:].reshape(out_array.shape)
-    #         else:
-    #             out_array[out_mask] = self.mask_interpolator(self.Orientation.view_plane.current_value.T if type(view_plane) == type(None) else view_plane.T,
-    #                                                          method = G.INTERPOLATION_DICT[dpg.get_value('interpolation_combo_box')])[:].reshape(out_array.shape)[out_mask]
-    
     def print_orientation_value(self, value: str, check_control = True):
         """
         value: string

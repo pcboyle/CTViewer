@@ -335,8 +335,6 @@ class Texture(object):
         
         if drawlist != '':
             self.drawlist_tag = drawlist
-
-        
         
         pixel_start = self.pixel_start if pixel_start == [None, None] else pixel_start
         pixel_end = self.pixel_end if pixel_end == [None, None] else pixel_end

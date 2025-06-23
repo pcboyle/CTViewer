@@ -229,7 +229,7 @@ class CTVolume(object):
         if self.step_directions[1] < 0: # X
             flip_axes += (1,)
 
-        if self.step_directions[2] > 0: # Z
+        if self.step_directions[2] < 0: # Z
             flip_axes += (2,)
 
         print(f'FLIP AXES: {flip_axes}')
