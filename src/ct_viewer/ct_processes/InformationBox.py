@@ -15,9 +15,10 @@ class InformationBox(object):
         self.landmark_volumes = []
         self.handler_list = []
         self.VolumeLayerGroups = VolumeLayerGroups
+        self.OptionsPanel = None
 
         dpg.add_item_double_clicked_handler(callback=self.landmark_double_clicked, 
-                                            user_data = None, 
+                                            user_data = None,
                                             tag = 'infomation_box_mouse_double_click_handler',
                                             parent = G.ITEM_HANDLER_REG_TAG)
         
@@ -199,6 +200,12 @@ class InformationBox(object):
 
         return histogram_info_volume if histogram_type == 'volume' else histogram_info_current_view
 
+
+    def set_options_panel(self, 
+                          OptionsPanel):
+        self.OptionsPanel = OptionsPanel
+
+
     def update_histogram_volume(self):
         histogram_info = self.get_histogram_info('volume')
         self.VolumeLayerGroups.update_histogram('volume', 
@@ -232,6 +239,7 @@ class InformationBox(object):
                                     clipper = True,
                                     scrollY = True):
                             self.items.append(f'{volume_name}_landmarks_table')
+                            dpg.add_table_column(label = ' ', width = 10)
                             dpg.add_table_column(label = f'{"X":^7}') # X
                             dpg.add_table_column(label = f'{"Y":^7}') # Y
                             dpg.add_table_column(label = f'{"Z":^7}') # Z
@@ -255,20 +263,38 @@ class InformationBox(object):
         # print(f'\tlandmark_id           : {landmark_id}')
         # print(f'\tlandmark_patch_id     : {landmark_patch_id}')
         # print(f'\tlandmark_patch        : {landmark_patch}')
+        
+        current_row = len(dpg.get_item_children(f'{volume_name}_landmarks_table', slot = 1)) + 1
         with dpg.mutex():
             with dpg.table_row(parent=f'{volume_name}_landmarks_table', 
                                tag = f'{volume_name}_landmark_{landmark_index}_row', 
                                user_data = landmark_coords):
-                dpg.add_selectable(label = f'{landmark_coords[1]:>7.2f}',
-                                   span_columns = True)
-                dpg.add_selectable(label = f'{-1.0 * landmark_coords[0] + 0.0:>7.2f}',
-                                   span_columns = True)
-                dpg.add_selectable(label = f'{landmark_coords[2]:>7.2f}',
-                                   span_columns = True)
-                dpg.add_selectable(label = f'{landmark_coords[3]:>7.2f}',
-                                   span_columns = True)
-                
                 self.items.append(f'{volume_name}_landmark_{landmark_index}_row')
+
+                dpg.add_selectable(label = f'{current_row}', 
+                                   span_columns=True, 
+                                   tag = f'{volume_name}_landmark_{landmark_index}_row_index')
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row_index')
+
+                dpg.add_selectable(label = f'{landmark_coords[1]:>7.2f}',
+                                   span_columns = True,
+                                   tag = f'{volume_name}_landmark_{landmark_index}_row_x')
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row_x')
+
+                dpg.add_selectable(label = f'{-1.0 * landmark_coords[0] + 0.0:>7.2f}',
+                                   span_columns = True,
+                                   tag = f'{volume_name}_landmark_{landmark_index}_row_y')
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row_y')
+
+                dpg.add_selectable(label = f'{landmark_coords[2]:>7.2f}',
+                                   span_columns = True,
+                                   tag = f'{volume_name}_landmark_{landmark_index}_row_z')
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row_z')
+
+                dpg.add_selectable(label = f'{landmark_coords[3]:>7.2f}',
+                                   span_columns = True,
+                                   tag = f'{volume_name}_landmark_{landmark_index}_row_i')
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row_i')
                 
                 with dpg.popup(dpg.last_item(), 
                             mousebutton = dpg.mvMouseButton_Right, 
@@ -290,7 +316,9 @@ class InformationBox(object):
                                 tag = f'remove++{volume_name}++landmark++{landmark_index}', 
                                 callback = self.delete_landmark)
                     self.items.append(f'remove++{volume_name}++landmark++{landmark_index}')
-            dpg.bind_item_handler_registry()
+
+            for row_child in dpg.get_item_children(f'{volume_name}_landmark_{landmark_index}_row', 1):
+                dpg.bind_item_handler_registry(row_child, G.ITEM_HANDLER_REG_TAG)
 
     def delete_landmark(self, sender, app_data, user_data):
         volume_name, landmark_id = user_data
@@ -312,10 +340,18 @@ class InformationBox(object):
 
     def landmark_double_clicked(self, sender, app_data, user_data):
         if self.VolumeLayerGroups.active:
-            print('InformationBox Message: Item Double Clicked')
-            print(f'\t{sender    = }')
-            print(f'\t{app_data  = }')
-            print(f'\t{user_data = }')
+            _, row_child = app_data
+            location = dpg.get_item_user_data(dpg.get_item_parent(row_child))
+
+            origin_x = np.round(location[1], decimals = 2) + 0.0
+            origin_y = np.round(-1.0*location[0], decimals = 2) + 0.0
+            origin_z = np.round(location[2], decimals = 2) + 0.0
+
+            dpg.set_value('origin_x_slider_current_value', origin_x)
+            dpg.set_value('origin_y_slider_current_value', origin_y)
+            dpg.set_value('origin_z_slider_current_value', origin_z)
+
+            self.OptionsPanel.update_volume('InformationBox.landmark_double_clicked', None, None)
 
 
     def reset_histogram_plot(self):

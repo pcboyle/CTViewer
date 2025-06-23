@@ -368,7 +368,6 @@ class FileDialog(object):
                 print(f'FileDialog Message: Delta X           : {dir_cos[:3]*pix_spacing[1]}')
                 print(f'FileDialog Message: Delta Y           : {dir_cos[3:]*pix_spacing[0]}')
 
-
             return dcm_dir_contents
 
 
@@ -1363,6 +1362,7 @@ class DataLoader(object):
                               DrawWindow: NewMainView.MainView,
                               OptionsPanel: OptionsPanel.OptionsPanel,
                               InformationBox: InformationBox.InformationBox):
+        
         if VolumeLayerGroups.get_group_by_index(0).n_volumes > 0:
             if not VolumeLayerGroups.active:
                 VolumeLayerGroups.set_current_volume_by_index(0, 0)
@@ -1373,9 +1373,6 @@ class DataLoader(object):
                 VolumeLayerGroups.get_current_group().set_drawlayer_tag(DrawWindow.return_texture_drawlayer_tag(DrawWindow.window_tag))
 
                 InformationBox.load_image(VolumeLayerGroups)
-
-                # dpg.enable_item('save_landmarks_button')
-                # dpg.enable_item('load_landmarks_button')
 
                 VolumeLayerGroups.set_active()
 
@@ -1472,7 +1469,9 @@ class DataLoader(object):
                                      loadmat(files_to_be_loaded_dict[file_id]['Attributes']['file_path'], 
                                      appendmat = False, 
                                      variable_names = volume_name, 
-                                     squeeze_me = True)[volume_name])
+                                     squeeze_me = True)[volume_name],
+                                     affine = np.eye(4, dtype = np.float32),
+                                     dim_order = (0, 1, 2))
         
 
     def load_hdf5_file(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
@@ -1495,7 +1494,7 @@ class DataLoader(object):
                                          files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
                                          h5_file[volume_name][()],
                                          affine = affine,
-                                         pixel_dims = affine[[0, 1, 2], [0, 1, 2]])
+                                         dim_order = (0, 1, 2))
                 
 
     def load_dicom_files(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
@@ -1517,10 +1516,15 @@ class DataLoader(object):
                                      file_path,
                                      self.read_dicom_pixel_dir(file_path),
                                      affine = affine,
-                                     pixel_dims = affine[[0, 1, 2], [0, 1, 2]])
+                                     dim_order = (0, 1, 2))
         
 
     def load_nifti_file(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
+        """
+        Nifti files store their data using RAS+, in contrast to DICOMs LPS+. 
+        Additionally, Nifti's use IJK storage, rather than XYZ. That means the rows and columns are swapped. 
+        We load DICOMS as ZXY, though, so we need to move the axes around and flip them. 
+        """
         for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
             if file_name == '':
                 file_name = files_to_be_loaded_dict[file_id]['Attributes']['file_name']
@@ -1536,9 +1540,9 @@ class DataLoader(object):
 
             return CTVolume.CTVolume(display_name, 
                                      files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
-                                     np.array(nib_file.get_fdata()),
+                                     np.array(nib_file.get_fdata(), dtype = np.float32),
                                      affine = nib_file.affine,
-                                     pixel_dims = nib_file.affine[[0, 1, 2], [0, 1, 2]])
+                                     dim_order = (2, 1, 0))
 
 
     # Dicom Utilities

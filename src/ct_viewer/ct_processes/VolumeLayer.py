@@ -128,6 +128,12 @@ class VolumeLayer(object):
                                                           create_tag('NewMainView', 
                                                                      'DrawList', 
                                                                      'TextureDrawList'))
+        
+        self.TextureOrtho: Textures.Texture = Textures.Texture(self.name,
+                                                               self.CTVolume, 
+                                                               create_tag('NewMainView', 
+                                                                          'DrawList', 
+                                                                          'TextureDrawList'))
 
         self.interpolate_texture(self.Texture.texture_content, 
                                  self.get_orientation().view_plane.get_voxel_view(),

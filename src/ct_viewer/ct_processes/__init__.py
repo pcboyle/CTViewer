@@ -97,6 +97,8 @@ class CTViewer:
         self.OptionsPanel.set_info_box(self.InformationBox)
         self.OptionsPanel.set_image_tools(self.ImageTools)
         
+        self.InformationBox.set_options_panel(self.OptionsPanel)
+
         self.FileDialog.initialize(VolumeLayerGroups = self.VolumeLayerGroups,
                                    DrawWindow = self.DrawWindow,
                                    OptionsPanel = self.OptionsPanel,

@@ -128,8 +128,7 @@ class Landmarks(object):
         # print('Landmarks Message: Adding Landmark:')
         # print(f'\tLandmark {self.landmark_index} Color: {self.landmark_rgba[self.landmark_index]}')
         self.landmark_last_tag = f'{self.volume_name}||{self.landmark_index}'
-
-        print(f'\tDrawing Circle: {drawing_coords = }')
+        
         landmark_circle = dpg.draw_circle(
             drawing_coords,
             radius = size * np.mean(geometry), 
@@ -137,9 +136,6 @@ class Landmarks(object):
             parent = draw_layer,
             tag = self.landmark_last_tag
         )
-
-        
-        print(f'\Circle Configuration: {dpg.get_item_configuration(self.landmark_last_tag)}')
 
         self.landmark_dict[landmark_circle] = self.landmark_index
         patch_texture_tag = f'{landmark_circle}||PatchTexture'
@@ -232,8 +228,6 @@ class Landmarks(object):
                                                             self.landmark_distances[:self.landmark_index])
 
         # print('Landmarks Message: update_landmarks')
-        print(f'\t{self.landmark_image_coords[:self.landmark_index, :3] = }')
-        print(f'\t{self.landmark_drawing_coords[:self.landmark_index] = }')
 
         for landmark_id, landmark_index in self.landmark_dict.items():
             dpg.configure_item(landmark_id, 

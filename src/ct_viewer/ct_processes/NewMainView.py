@@ -117,7 +117,7 @@ class MainView:
                                            height=-1, 
                                            tag = self.colormap_texture_tag, 
                                            colormap=G.DEFAULT_IMAGE_SETTINGS['colormap_scale'])
-                    
+                
         dpg.add_draw_layer(parent = self.drawlist_texture_tag, 
                            tag = self.texture_draw_layer_tag)
         

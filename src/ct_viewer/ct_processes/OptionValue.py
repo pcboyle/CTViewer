@@ -262,6 +262,8 @@ class OrientationInfo(object):
         self.geometry_vector = VectorValue(tag = 'geometry_vector', default_vector = cp.array([[1.0*default_geometry[0]], [1.0*default_geometry[1]], [1.0*default_geometry[2]]]))
         self.view_plane = ViewPlane(tag = f'{tag}|ViewPlane', texture_dim = default_texture_dim, texture_center = default_texture_center, 
                                     z_dim = 2, voxel_start = voxel_start, voxel_steps = voxel_steps, voxel_center = voxel_center)
+        self.view_plane_ortho = ViewPlane(tag = f'{tag}|ViewPlaneOrtho', texture_dim = default_texture_dim, texture_center = default_texture_center, 
+                                          z_dim = 2, voxel_start = voxel_start, voxel_steps = voxel_steps, voxel_center = voxel_center)
         self.drawlayer = StringValue(default_string = default_drawlayer_tag)
 
 
@@ -601,6 +603,10 @@ class OrientationInfo(object):
                         + self.origin_vector.difference_value
                         + self.norm.difference_value*self.norm_vector.current_value, 
                         decimals = 4)
+            
+            # self.view_plane_ortho.update_values(qtn_rotate(qtn.array([np.sqrt(2)/2, np.sqrt(2)/2, 0.0, 0.0]), 
+            #                                                self.view_plane.current_value),
+            #                                                decimals = 4)
             
         else:
             print('GPU required!')

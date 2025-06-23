@@ -18,11 +18,11 @@ class OptionsPanel:
         # These are set in set_volume_and_draw_objects
         self.VolumeLayerGroups = None
         self.DrawWindow = None
+        self.InformationBox = None
         self.orientation_tags = []
         self.intensity_tags = []
         self.debug = debug
-        self.InformationBox = None
-        self.image_tools = None
+        self.ImageTools = None
         self.tag_list = []
         self.handler_list = []
         self.reset_list = []
@@ -601,11 +601,13 @@ class OptionsPanel:
         
         return intensity_info
     
+
     def get_text_info(self):
         text_info = {'mouse_pos_text_tag': self.DrawWindow.return_mouse_pos_texture_info_text_tag(self.DrawWindow.window_tag),
                      'crosshair_pos_text_tag': self.DrawWindow.return_crosshair_pos_texture_info_text_tag(self.DrawWindow.window_tag)}
         return text_info
     
+
     def add_landmark(self, sender, app_data, user_data):
         #TODO Add mouse landmarking via double click. 
         # Currently only uses spacebar. 
@@ -672,7 +674,7 @@ class OptionsPanel:
                     # Set slider option 
                     dpg.set_value(option_tag, 
                                   option_value)
-                    
+
 
     def update_option_values(self, sender:str):
         control_category = sender.split(f'_{G.GROUP_LAYER_CONTROL_BUTTON}')[0]
