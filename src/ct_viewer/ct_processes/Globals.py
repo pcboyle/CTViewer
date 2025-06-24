@@ -129,7 +129,7 @@ class G:
                             'default_colors': {'default_landmark_color': (113, 237, 235, 255),
                                                 'default_crosshair_color': (113, 237, 235, 125)},
                             'plot_settings': {'default_view': 'axial',
-                                                'default_cmap': 'Fire'},
+                                              'default_cmap': 'Fire'},
                             'texture_settings': {'texture_dimension': 700},
                             'landmark_settings': {'circle_radius': 2},
                             'gpu_settings':{'use_gpu': True, 
@@ -198,7 +198,7 @@ class G:
         
         print('GLOBALS Message: Configuration saved.')
 
-    LOG_DIR = USERHOME.joinpath('Logs')
+    LOG_DIR = CONFIG_DIR.joinpath('Logs')
     LOG_DIR.mkdir(exist_ok = True)
     # Dictionary for resetting everything to default when closing a volume or set of volumes. 
     GLOBAL_DEFAULTS = {'TEXTURE_DIM': min([CONFIG_DICT['app_settings']['main_texture_height'], 

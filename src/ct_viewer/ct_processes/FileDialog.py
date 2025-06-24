@@ -1363,15 +1363,15 @@ class DataLoader(object):
                               OptionsPanel: OptionsPanel.OptionsPanel,
                               InformationBox: InformationBox.InformationBox):
         
-        window_tag = DrawWindow.get_window_tags()[0]
+
         if VolumeLayerGroups.get_group_by_index(0).n_volumes > 0:
             if not VolumeLayerGroups.active:
                 VolumeLayerGroups.set_current_volume_by_index(0, 0)
-                VolumeLayerGroups.get_current_volume().set_drawlayer_tag(DrawWindow.return_texture_drawlayer_tag(window_tag))
-                VolumeLayerGroups.get_current_volume().add_texture_to_drawlist(drawlist=DrawWindow.return_texture_drawlayer_tag(window_tag))
-                VolumeLayerGroups.get_current_volume().set_colormap_scale_tag(DrawWindow.return_colormap_tag(window_tag))
-                VolumeLayerGroups.get_current_group().set_colormap_scale_tag(DrawWindow.return_colormap_tag(window_tag))
-                VolumeLayerGroups.get_current_group().set_drawlayer_tag(DrawWindow.return_texture_drawlayer_tag(window_tag))
+                VolumeLayerGroups.get_current_volume().add_textures_to_drawlists(VolumeLayerGroups.texture_drawlayer_tags)
+                # VolumeLayerGroups.get_current_volume().add_texture_to_drawlist(drawlist=DrawWindow.return_texture_drawlayer_tag(window_tag))
+                VolumeLayerGroups.get_current_volume().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
+                VolumeLayerGroups.get_current_group().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
+                # VolumeLayerGroups.get_current_group().set_drawlayer_tags(DrawWindow.get_texture_drawlist_tags())
 
                 InformationBox.load_image(VolumeLayerGroups)
 
@@ -1394,7 +1394,7 @@ class DataLoader(object):
         dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {VolumeLayerGroups.get_current_volume().name}')
         
         OptionsPanel.update_volume('FileDialog', None, None)
-        VolumeLayerGroups.get_current_group().set_landmark_draw_layer_tag(DrawWindow.return_landmark_drawlayer_tag(window_tag))
+        # VolumeLayerGroups.get_current_group().set_landmark_draw_layer_tag(DrawWindow.return_landmark_drawlayer_tag(window_tag))
         VolumeLayerGroups.update_histogram('volume')
         VolumeLayerGroups.update_histogram('texture')
 
@@ -1449,9 +1449,9 @@ class DataLoader(object):
             dpg.set_value(G.LOADING_WINDOW_TEXT, load_message)
 
             VolumeLayerGroups.add_volume_to_group('AllVolumes',
-                                                    self.load_type_dict[file_type](files_to_be_loaded_dict, 
-                                                                                   file_id, 
-                                                                                   file_name = file_name))
+                                                  self.load_type_dict[file_type](files_to_be_loaded_dict, 
+                                                                                 file_id, 
+                                                                                 file_name = file_name))
 
     def load_mat_file(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
         for volume_name in files_to_be_loaded_dict[file_id]['volumes']:

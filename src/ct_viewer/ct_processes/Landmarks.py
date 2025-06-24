@@ -502,10 +502,18 @@ class Landmarks(object):
         del self.landmark_dict[landmark_id]
 
         self.landmark_valid_indices.remove(int(landmark_index))
-
         self.number_of_landmarks -= 1
 
+
+    def delete_all_landmarks(self):
+        for landmark_id in list(self.landmark_dict.keys()):
+            self.delete_landmark(landmark_id)
+
+        print(f'Landmarks Message: Deleted landmarks for {self.volume_name}')
+        print(f'\tNumber of Landmarks: {self.number_of_landmarks}')
+
     def _cleanup_(self):
+        self.delete_all_landmarks()
         dict_keys = list(self.__dict__.keys())
         while len(dict_keys) > 0:
             attrib_key = dict_keys.pop()

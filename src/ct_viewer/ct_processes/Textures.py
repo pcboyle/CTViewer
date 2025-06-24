@@ -18,6 +18,10 @@ class Texture(object):
                  volume_name: str, 
                  ct_volume: CTVolume.CTVolume, 
                  drawlist_tag: str,
+                 drawlist_shape: list[int|float],
+                 pixel_start: list[int|float] = [0.0, 0.0],
+                 pixel_end: list[int|float] = [G.TEXTURE_DIM, G.TEXTURE_DIM],
+                 tag_suffix: str = '',
                  instantiate_texture: bool = False):
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
@@ -34,8 +38,8 @@ class Texture(object):
         self.zoom_constant = 0.01 # Percent of original image
         self.x_shift = 0
         self.y_shift = 0
-        self.pixel_start = [0, 0]
-        self.pixel_end = [self.texture_dim, self.texture_dim]
+        self.pixel_start = pixel_start
+        self.pixel_end = pixel_end
         self.uv_min = [0.0, 0.0]
         self.uv_max = [1.0, 1.0]
         self.min_value = 0.0 # 1.0 * self.ct_volume.volume_min
@@ -43,9 +47,10 @@ class Texture(object):
         self.colormap_min = 1.0 * self.min_value
         self.colormap_max = 1.0 * self.max_value
         self.colormap_scale_tag: str = 'COLORMAP_SCALE_NOT_INITIALIZED'
-        self.texture_tag = create_tag('Textures', 'Texture', ct_volume.name)
+        self.texture_tag = create_tag('Textures', 'Texture', ct_volume.name, suffix = tag_suffix)
         self.drawlist_tag = drawlist_tag
-        self.drawimage_tag = create_tag('Textures', 'DrawImage', ct_volume.name)
+        self.drawimage_tag = create_tag('Textures', 'DrawImage', ct_volume.name, suffix = tag_suffix)
+        self.drawlist_shape = drawlist_shape
 
         if instantiate_texture:
             self.assign_texture()

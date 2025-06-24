@@ -574,6 +574,10 @@ class OptionsPanel:
         return control_info
         
     def get_orientation_info(self):
+        
+        drawwindow_tags = self.DrawWindow.get_window_tags()
+        drawlayer_tags = [self.DrawWindow.return_texture_drawlayer_tag(tag) for tag in drawwindow_tags]
+
         orientation_info = {'origin_x': dpg.get_value('origin_x_slider'),
                             'origin_y': dpg.get_value('origin_y_slider'), 
                             'origin_z': dpg.get_value('origin_z_slider'),
@@ -584,7 +588,7 @@ class OptionsPanel:
                             'pixel_spacing_x': dpg.get_value('pixel_spacing_x_input'),
                             'pixel_spacing_y': dpg.get_value('pixel_spacing_y_input'),
                             'slice_thickness': dpg.get_value('slice_thickness_input'),
-                            'drawlayer_tag': self.DrawWindow.return_texture_drawlayer_tag(self.DrawWindow.get_window_tags()[0])}
+                            'drawlayer_tags': drawlayer_tags}
 
         return orientation_info
     
@@ -636,11 +640,11 @@ class OptionsPanel:
         # for key, tag in G.OPTION_TAG_DICT.items():
         #     print(f'\t{f"{key} value":<30}: {dpg.get_value(tag)}')
         self.VolumeLayerGroups.update_current_volume(user_data, 
-                                                       control_info,
-                                                       orientation_info, 
-                                                       intensity_info,
-                                                       text_info,
-                                                       operation_info)
+                                                     control_info,
+                                                     orientation_info, 
+                                                     intensity_info,
+                                                     text_info,
+                                                     operation_info)
 
 
     def reset_orientation(self):

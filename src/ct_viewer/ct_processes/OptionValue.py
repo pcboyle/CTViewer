@@ -239,7 +239,7 @@ class OrientationInfo(object):
                  voxel_start: np.ndarray = np.zeros(3),
                  voxel_center: np.ndarray = np.zeros(3),
                  voxel_steps: np.ndarray = np.ones(3),
-                 default_drawlayer_tag: str = ''):
+                 default_drawlayer_tags: list[str] = ['', '']):
 
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
@@ -263,9 +263,9 @@ class OrientationInfo(object):
         self.view_plane = ViewPlane(tag = f'{tag}|ViewPlane', texture_dim = default_texture_dim, texture_center = default_texture_center, 
                                     z_dim = 2, voxel_start = voxel_start, voxel_steps = voxel_steps, voxel_center = voxel_center)
         self.view_plane_ortho = ViewPlane(tag = f'{tag}|ViewPlaneOrtho', texture_dim = default_texture_dim, texture_center = default_texture_center, 
-                                          z_dim = 2, voxel_start = voxel_start, voxel_steps = voxel_steps, voxel_center = voxel_center)
-        self.drawlayer = StringValue(default_string = default_drawlayer_tag)
-
+                                          z_dim = 1, voxel_start = voxel_start, voxel_steps = voxel_steps, voxel_center = voxel_center)
+        self.drawlayer = StringValue(default_string = default_drawlayer_tags[0])
+        self.drawlayer_ortho = StringValue(default_string = default_drawlayer_tags[1])
 
     def get_volume_coords(self, 
                           coord_x:int, 
@@ -277,26 +277,23 @@ class OrientationInfo(object):
                               axis = 0).round(decimals = 4).reshape((3,))
 
 
-    def set_drawlayer_tag(self, 
-                          drawlayer_tag: str):
-        self.drawlayer = StringValue(default_string = drawlayer_tag)
+    def set_drawlayer_tags(self, 
+                          drawlayer_tags: list[str]):
+        self.drawlayer = StringValue(default_string = drawlayer_tags[0])
+        self.drawlayer_ortho = StringValue(default_string = drawlayer_tags[1])
     
     
     def copy_orientation(self, 
                          orientation_info: "OrientationInfo"):
         
-
-
         for orientation_key in orientation_info.__dict__.keys():
             check_string = f'{orientation_key}\n--------------------\n'
             
             if orientation_key != 'view_plane':
                 check_string = f'{check_string}{getattr(self, orientation_key)}\nNew: '
-
             
             for value_type in ['current_value', 'previous_value', 'difference_value']:
                 setattr(getattr(self, orientation_key), value_type, getattr(getattr(orientation_info, orientation_key), value_type))
-
 
             if orientation_key != 'view_plane':
                 check_string = f'{check_string}{getattr(self, orientation_key)}'
@@ -316,13 +313,15 @@ class OrientationInfo(object):
                            pixel_spacing_x:float = None, 
                            pixel_spacing_y:float = None, 
                            slice_thickness:float = None,
-                           drawlayer_tag:str = None,
+                           drawlayer_tags:list[str] = None,
                            apply_scaling:bool = True):
         with dpg.mutex():
             # Update geometry first, then apply to all other vectors.  
             # Reset View Plane Zoom. 
             self.view_plane.set_current_value(self.view_plane.current_value 
                                               * self.geometry_vector.current_value)
+            self.view_plane_ortho.set_current_value(self.view_plane_ortho.current_value 
+                                                     * self.geometry_vector.current_value)
             
             
             self.update_pitch_yaw_roll(pitch = pitch, 
@@ -354,6 +353,8 @@ class OrientationInfo(object):
             # Set Zoom Plane and origin values zoom.
             self.view_plane.set_current_value(self.view_plane.current_value 
                                               / self.geometry_vector.current_value)
+            self.view_plane_ortho.set_current_value(self.view_plane_ortho.current_value 
+                                                     / self.geometry_vector.current_value)
             
             # We reset scaling here so that the origin_x, origin_y, and origin_z values reflect correct the OptionsPanel values. 
             self.origin_x.set_current_value(self.origin_x.current_value 
@@ -363,11 +364,12 @@ class OrientationInfo(object):
             self.origin_z.set_current_value(self.origin_z.current_value 
                                             / self.geometry_vector.current_value.reshape((3, )).get()[2])
 
-            self.update_drawlayer(drawlayer_tag)
+            self.update_drawlayers(drawlayer_tags)
 
-    def update_drawlayer(self, 
-                         drawlayer_tag: str):
-        self.drawlayer.update_values(drawlayer_tag)
+    def update_drawlayers(self, 
+                          drawlayer_tags: list[str]):
+        self.drawlayer.update_values(drawlayer_tags[0])
+        self.drawlayer_ortho.update_values(drawlayer_tags[1])
     
     def reset_orientation(self):
         with dpg.mutex():
@@ -386,6 +388,7 @@ class OrientationInfo(object):
             self.origin_vector.reset()
             self.norm_vector.reset()
             self.view_plane.reset()
+            self.view_plane_ortho.reset()
         
           
     def update_pitch_yaw_roll(self, 
@@ -435,7 +438,7 @@ class OrientationInfo(object):
                 angle_rad = np.deg2rad(angle.difference_value)
                 rotate_qtn[0] = np.round(np.cos(angle_rad/2), decimals = 9)
                 rotate_qtn[angle_index + 1] = np.round(np.sin(angle_rad/2), decimals = 9)
-                
+        
         self.quaternion.update_values(rotate_qtn*self.quaternion.current_value, decimals = 6)
         
         
@@ -604,9 +607,14 @@ class OrientationInfo(object):
                         + self.norm.difference_value*self.norm_vector.current_value, 
                         decimals = 4)
             
-            # self.view_plane_ortho.update_values(qtn_rotate(qtn.array([np.sqrt(2)/2, np.sqrt(2)/2, 0.0, 0.0]), 
-            #                                                self.view_plane.current_value),
-            #                                                decimals = 4)
+            self.view_plane_ortho.update_values(
+                qtn_rotate(self.quaternion.difference_value,
+                           self.view_plane_ortho.current_value
+                           - self.origin_vector.current_value, axis = 0)
+                        + self.origin_vector.current_value
+                        + self.origin_vector.difference_value
+                        + self.norm.difference_value*self.norm_vector.current_value, 
+                        decimals = 4)
             
         else:
             print('GPU required!')

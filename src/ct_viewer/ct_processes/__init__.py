@@ -21,9 +21,9 @@ class CTViewer:
         print('Initialized')
         G.APP = self
 
+        self.DrawWindow:NewMainView.MainView = NewMainView.MainView()
         self.VolumeLayerGroups:VolumeLayer.VolumeLayerGroups = VolumeLayer.VolumeLayerGroups()
         self.VolumeLayerGroups.add_group(group_name = 'AllVolumes')
-        self.DrawWindow:NewMainView.MainView = NewMainView.MainView(self.VolumeLayerGroups)
 
         self.texture_registry = dpg.add_texture_registry(tag = G.TEX_REG_TAG) # 'main_texture_registry'
         self.colormap_registry = dpg.add_colormap_registry(tag = G.COLORMAP_TAG)
@@ -84,17 +84,26 @@ class CTViewer:
                             self.DrawWindow.create_draw_window('MainTexture', 
                                                                G.VOLUME_TAB_TAG, 
                                                                item_handler_reg_tag = self.item_hovered_registry)
-                            # self.DrawWindow.create_inset_window('InsetWindow', 
-                            #                                     self.DrawWindow.get_window_tags()[0],
-                            #                                     start = [round((2/3) * G.TEXTURE_DIM), round((2/3) * G.TEXTURE_DIM)],
-                            #                                     stop = [G.TEXTURE_DIM, G.TEXTURE_DIM],
-                            #                                     width = round((1/3) * G.TEXTURE_DIM),
-                            #                                     height = round((1/3) * G.TEXTURE_DIM))
+                            self.DrawWindow.create_inset_window('InsetWindow', 
+                                                                self.DrawWindow.get_window_tags()[0],
+                                                                start = [round((2/3) * G.TEXTURE_DIM), 
+                                                                         round((2/3) * G.TEXTURE_DIM)],
+                                                                stop = [G.TEXTURE_DIM, 
+                                                                        G.TEXTURE_DIM],
+                                                                width = round((1/3) * G.TEXTURE_DIM),
+                                                                height = round((1/3) * G.TEXTURE_DIM))
                         with dpg.tab(label = 'Analysis Tab', 
                                      tag = G.ANALYSIS_TAB_TAG):
                             self.AnalysisView = AnalysisView.AnalysisView()
                 
                 self.InformationBox = InformationBox.InformationBox(self.VolumeLayerGroups)
+
+        self.VolumeLayerGroups.set_draw_window_dict(self.DrawWindow.window_dict)
+        self.VolumeLayerGroups.set_texture_drawlayer_tags(self.DrawWindow.get_texture_drawlist_tags())
+        self.VolumeLayerGroups.set_landmark_drawlayer_tags(self.DrawWindow.get_landmark_drawlist_tags())
+        self.VolumeLayerGroups.get_current_group().set_draw_window_dict(self.DrawWindow.window_dict)
+        self.VolumeLayerGroups.get_current_group().set_texture_drawlayer_tags(self.DrawWindow.get_texture_drawlist_tags())
+        self.VolumeLayerGroups.get_current_group().set_landmark_drawlayer_tags(self.DrawWindow.get_landmark_drawlist_tags())
 
         self.ImageTools.set_options_panel(self.OptionsPanel)
         self.OptionsPanel.set_volume_and_draw_objects(self.VolumeLayerGroups,
@@ -117,7 +126,7 @@ class CTViewer:
         
         for tag in self.DrawWindow.get_window_tags():
             dpg.bind_item_handler_registry(self.DrawWindow.return_texture_drawlist_tag(tag),
-                                        self.item_hovered_registry)
+                                           self.item_hovered_registry)
         
         dpg.add_key_press_handler(key = dpg.mvKey_None, 
                                   callback = self.OptionsPanel.mouse_and_keyboard_navigation, 
