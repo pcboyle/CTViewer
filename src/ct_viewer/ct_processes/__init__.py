@@ -24,6 +24,7 @@ class CTViewer:
         self.DrawWindow:NewMainView.MainView = NewMainView.MainView()
         self.VolumeLayerGroups:VolumeLayer.VolumeLayerGroups = VolumeLayer.VolumeLayerGroups()
         self.VolumeLayerGroups.add_group(group_name = 'AllVolumes')
+        window_types = ['view_plane', 'view_plane_ortho']
 
         self.texture_registry = dpg.add_texture_registry(tag = G.TEX_REG_TAG) # 'main_texture_registry'
         self.colormap_registry = dpg.add_colormap_registry(tag = G.COLORMAP_TAG)
@@ -120,10 +121,14 @@ class CTViewer:
                                    InformationBox = self.InformationBox,
                                    debug = G.DEBUG_MODE)
         
-        dpg.add_item_hover_handler(parent = self.item_hovered_registry, 
-                                   user_data = self.DrawWindow.return_mouse_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0]),
-                                   callback = self.VolumeLayerGroups.update_mouse_volume_coord_info)
         
+        hover_info = {'mouse_info_text_tag': self.DrawWindow.return_mouse_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0]),
+                      'Windows': {self.DrawWindow.get_window_tags()[0]: 'view_plane',
+                      self.DrawWindow.get_window_tags()[1]: 'view_plane_ortho'}}
+        
+        dpg.add_item_hover_handler(parent = self.item_hovered_registry, 
+                                       user_data = hover_info,
+                                       callback = self.OptionsPanel.update_hover_info)
         for tag in self.DrawWindow.get_window_tags():
             dpg.bind_item_handler_registry(self.DrawWindow.return_texture_drawlist_tag(tag),
                                            self.item_hovered_registry)

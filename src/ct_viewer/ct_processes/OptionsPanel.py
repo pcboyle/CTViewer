@@ -26,6 +26,9 @@ class OptionsPanel:
         self.tag_list = []
         self.handler_list = []
         self.reset_list = []
+        self.hover_info = {'mouse_info_text_tag': '',
+                           'window_type': 'view_plane',
+                           'window_hovered': ''}
 
         # dpg.mvKey: [no mods | mod shift | mod alt], key_alias. 
         self.mouse_and_keyboard_controls = {
@@ -607,20 +610,31 @@ class OptionsPanel:
     
 
     def get_text_info(self):
-        text_info = {'mouse_pos_text_tag': self.DrawWindow.return_mouse_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0]),
-                     'crosshair_pos_text_tag': self.DrawWindow.return_crosshair_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0])}
+        text_info = {'window_type': self.hover_info['window_type'],
+                     'mouse_info_text_tag': self.DrawWindow.return_mouse_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0]),
+                     'crosshair_info_text_tag': self.DrawWindow.return_crosshair_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0])}
         return text_info
     
 
     def add_landmark(self, sender, app_data, user_data):
         #TODO Add mouse landmarking via double click. 
         # Currently only uses spacebar. 
-        print('OptionsPanel Message: add_landmark')
         self.VolumeLayerGroups.add_landmark(app_data)
-        print(f'\tVolumeLayerGroups.add_landmark(app_data)')
         self.InformationBox.add_landmark(*self.VolumeLayerGroups.get_last_landmark())
-        print(f'\tInformationBox.add_landmark(*self.VolumeLayerGroups.get_last_landmark())')
-        
+
+
+    def update_hover_info(self, sender, app_data, user_data: dict):
+        if self.VolumeLayerGroups.active:
+            for window_key in user_data['Windows']:
+                if dpg.is_item_hovered(window_key):
+                    self.hover_info['mouse_info_text_tag'] = user_data['mouse_info_text_tag']
+                    self.hover_info['window_type'] = user_data['Windows'][window_key]
+                    self.hover_info['window_hovered'] = window_key
+            
+            self.VolumeLayerGroups.update_mouse_volume_coord_info('OptionsPanel.update_hover_info',
+                                                                None,
+                                                                self.hover_info)
+                
 
     def update_volume(self, sender, app_data, user_data):
 

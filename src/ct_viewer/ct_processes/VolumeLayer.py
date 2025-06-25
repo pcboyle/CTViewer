@@ -181,16 +181,24 @@ class VolumeLayer(object):
     def get_drawing_pos_texture_value(self, 
                                       draw_x: int,
                                       draw_y: int,
+                                      window_type = 'view_plane',
                                       decimals = 3) -> float:
         
-        return np.round(self.Texture.get_texture_value_at_pos(draw_x, draw_y), decimals = decimals)
+        if window_type == 'view_plane':
+            return np.round(self.Texture.get_texture_value_at_pos(draw_x, draw_y), decimals = decimals)
+        
+        elif window_type == 'view_plane_ortho':
+            return np.round(self.TextureOrtho.get_texture_value_at_pos(draw_x, draw_y), decimals = decimals)
     
+        else:
+            print(f'VolumeLayerMessage: Unknown window type {window_type} in get_drawing_pos_texture_value')
 
     def get_physical_voxel_coords(self, 
                                   draw_x: int,
-                                  draw_y: int) -> np.ndarray:
+                                  draw_y: int,
+                                  window_type: str = 'view_plane') -> np.ndarray:
     
-        physical_coords = self.get_physical_pos_coords(draw_x, draw_y)
+        physical_coords = self.get_physical_pos_coords(draw_x, draw_y, window_type = window_type)
         physical_voxel_coords = (physical_coords - self.CTVolume.physical_start) / self.CTVolume.pixel_steps
         
         return physical_voxel_coords.round(2)
@@ -198,9 +206,10 @@ class VolumeLayer(object):
 
     def get_physical_pos_coords(self, 
                                 draw_x: int, 
-                                draw_y: int) -> np.ndarray:
+                                draw_y: int,
+                                window_type: str = 'view_plane') -> np.ndarray:
         
-        image_pos_coords = self.get_drawing_pos_coords(draw_x, draw_y)
+        image_pos_coords = self.get_drawing_pos_coords(draw_x, draw_y, window_type = window_type)
         physical_coords = image_pos_coords + self.CTVolume.physical_center
 
         return physical_coords
@@ -208,19 +217,27 @@ class VolumeLayer(object):
 
     def get_drawing_pos_coords(self, 
                                draw_x: int,
-                               draw_y: int) -> np.ndarray:
-        return self.get_orientation().view_plane.get_coords(int(draw_x), 
-                                                            int(draw_y)).get()
+                               draw_y: int,
+                               window_type: str = 'view_plane') -> np.ndarray:
+        if window_type == 'view_plane':
+            return self.get_orientation().view_plane.get_coords(int(draw_x), 
+                                                                int(draw_y)).get()
+        
+        elif window_type == 'view_plane_ortho':
+            return self.get_orientation().view_plane_ortho.get_coords(int(draw_x), 
+                                                                      int(draw_y)).get()
+        
+        else:
+            print(f'VolumeLayerMessage: Unknown window type {window_type} in get_drawing_pos_coords')
 
 
-    def get_mouse_coords(self) -> np.ndarray:
+    def get_mouse_coords(self, window_type:str = 'view_plane') -> np.ndarray:
         mouse_x, mouse_y = dpg.get_drawing_mouse_pos()
+        return self.get_drawing_pos_coords(int(mouse_x), int(mouse_y), window_type = window_type)
 
-        return self.get_drawing_pos_coords(int(mouse_x), int(mouse_y))
 
-
-    def get_crosshair_coords(self) -> np.ndarray:
-        return self.get_drawing_pos_coords(int(self.texture_center), int(self.texture_center))
+    def get_crosshair_coords(self, window_type:str = 'view_plane') -> np.ndarray:
+        return self.get_drawing_pos_coords(int(self.texture_center), int(self.texture_center), window_type = window_type)
 
 
     def add_tag(self, tag_name, tag_value):
@@ -1623,15 +1640,16 @@ class VolumeLayerGroups(object):
         crosshair_draw_pos = self.get_crosshair_drawing_pos()
         mouse_draw_pos = dpg.get_drawing_mouse_pos()
 
-        mouse_text_tag = text_info['mouse_pos_text_tag']
-        crosshair_text_tag = text_info['crosshair_pos_text_tag']
+        mouse_text_tag = text_info['mouse_info_text_tag']
+        crosshair_text_tag = text_info['crosshair_info_text_tag']
+        window_type = text_info['window_type']
 
         for position, text_tag, position_id in zip([crosshair_draw_pos, mouse_draw_pos], 
                                                    [crosshair_text_tag, mouse_text_tag],
                                                    ['Crosshair', 'Mouse']):
             self.set_drawing_position_info_text(
                                 text_tag,
-                                self.get_drawing_position_info_text(*position, position_id),
+                                self.get_drawing_position_info_text(*position, position_id, window_type),
                 )
             
         if changed_volume:
@@ -1751,7 +1769,8 @@ class VolumeLayerGroups(object):
     
 
     def add_landmark(self, 
-                     drawing_coords: tuple[int]) -> None:
+                     drawing_coords: tuple[int],
+                     window_type: str = 'view_plane') -> None:
         """
 
         drawing_coords: tuple[int, int]
@@ -1760,13 +1779,16 @@ class VolumeLayerGroups(object):
         """
 
         image_coords = self.get_drawing_pos_coords(drawing_coords[0], 
-                                                   drawing_coords[1])
+                                                   drawing_coords[1],
+                                                   window_type = window_type)
         
         image_coords_hu = self.get_drawing_pos_texture_value(drawing_coords[0], 
-                                                             drawing_coords[1])
+                                                             drawing_coords[1],
+                                                             window_type = window_type)
         
         voxel_coords = self.get_physical_voxel_coords(drawing_coords[0], 
-                                                      drawing_coords[1])
+                                                      drawing_coords[1],
+                                                      window_type = window_type)
         
         quaternion = self.get_current_orientation().quaternion.current_value
         viewplane_norm = self.get_current_orientation().norm_vector.current_value.get().reshape((3, ))
@@ -1775,8 +1797,6 @@ class VolumeLayerGroups(object):
         geometry = self.get_current_orientation().geometry_vector.current_value.get().reshape((3, ))
         size = 5.0
         patch_width = int(10 * np.mean(geometry))
-        print('VolumeLayerGroups Message: self.get_texture_patch')
-        print(f'\t{patch_width = }')
         patch_x = [int(drawing_coords[0] - patch_width), int(drawing_coords[0] + patch_width + 1)]
         patch_y = [int(drawing_coords[1] - patch_width), int(drawing_coords[1] + patch_width + 1)]
         landmark_patch = self.get_texture_patch(patch_x,
@@ -1884,19 +1904,38 @@ class VolumeLayerGroups(object):
     def update_mouse_volume_coord_info(self, 
                                        sender, 
                                        app_data, 
-                                       user_data):
+                                       user_data: dict):
+        """
+        sender:
+
+        app_data:
+
+        user_data: dict
+            Dictionary with keys: 
+                'mouse_info_text_tag'
+                'window_type' 
+        """
         if self.active:
-            self.set_drawing_position_info_text(user_data, 
+            self.set_drawing_position_info_text(user_data['mouse_info_text_tag'], 
                                                 self.get_drawing_position_info_text(*dpg.get_drawing_mouse_pos(),
-                                                                                    'Mouse'))
+                                                                                    'Mouse',
+                                                                                     user_data['window_type']))
 
 
     def get_drawing_pos_coords(self, 
                                draw_x: int,
-                               draw_y: int) -> np.ndarray:
+                               draw_y: int,
+                               window_type: str = 'view_plane') -> np.ndarray:
         if self.active:
-            return self.get_current_orientation().view_plane.get_coords(int(draw_x), 
-                                                                        int(draw_y)).get()
+            if window_type == 'view_plane':
+                return self.get_current_orientation().view_plane.get_coords(int(draw_x), 
+                                                                            int(draw_y)).get()
+        
+            elif window_type == 'view_plane_ortho':
+                return self.get_current_orientation().view_plane_ortho.get_coords(int(draw_x), 
+                                                                                  int(draw_y)).get()
+            else:
+                print(f'VolumeLayerGroups Message: Unknown window type {window_type} in get_drawing_pos_coords')
 
 
     def get_mouse_coords(self) -> np.ndarray:
@@ -1906,9 +1945,12 @@ class VolumeLayerGroups(object):
             return self.get_drawing_pos_coords(int(mouse_x), int(mouse_y))
 
 
-    def get_crosshair_drawing_pos(self):
+    def get_crosshair_drawing_pos(self, window_type:str = 'view_plane'):
         if self.active:
-            return int(G.TEXTURE_CENTER), int(G.TEXTURE_CENTER)
+            if window_type == 'view_plane':
+                return int(G.TEXTURE_CENTER), int(G.TEXTURE_CENTER)
+            elif window_type == 'view_plane_ortho':
+                return int(G.TEXTURE_CENTER), int(G.TEXTURE_CENTER)
 
 
     def get_crosshair_coords(self) -> np.ndarray:
@@ -1918,25 +1960,28 @@ class VolumeLayerGroups(object):
 
     def get_physical_pos_coords(self, 
                                 draw_x: int, 
-                                draw_y: int) -> np.ndarray:
+                                draw_y: int,
+                                window_type: str = 'view_plane') -> np.ndarray:
         
 
-        return self.get_current_volume().get_physical_pos_coords(draw_x, draw_y)
+        return self.get_current_volume().get_physical_pos_coords(draw_x, draw_y, window_type = window_type)
     
 
     def get_physical_voxel_coords(self, 
                                   draw_x: int,
-                                  draw_y: int) -> np.ndarray:
+                                  draw_y: int,
+                                  window_type: str = 'view_plane') -> np.ndarray:
             
-        return self.get_current_volume().get_physical_voxel_coords(draw_x, draw_y)
+        return self.get_current_volume().get_physical_voxel_coords(draw_x, draw_y, window_type = window_type)
     
 
     def get_drawing_pos_texture_value(self, 
                                       draw_x: int,
                                       draw_y: int,
-                                      decimals = 3) -> float|int:
+                                      window_type: str = 'view_plane',
+                                      decimals: int = 3) -> float|int:
         
-        return self.get_current_volume().get_drawing_pos_texture_value(draw_x, draw_y, decimals = decimals)
+        return self.get_current_volume().get_drawing_pos_texture_value(draw_x, draw_y, window_type = window_type, decimals = decimals)
     
 
     def get_texture_patch(self, 
@@ -1958,21 +2003,28 @@ class VolumeLayerGroups(object):
     def get_drawing_position_info_text(self,
                                        draw_x: int,
                                        draw_y: int,
-                                       position_identifier: str):
+                                       position_identifier: str, 
+                                       window_type: str):
         
         if self.current_group_and_volume[0] == None:
             return
         
         if self.get_current_group().n_volumes < 1:
             return
+
+
+        if window_type == 'view_plane_ortho':
+            pixel_start = self.get_current_volume().TextureOrtho.pixel_start
+            draw_x -= pixel_start[0]
+            draw_y -= pixel_start[1]
         
-        coords = self.get_drawing_pos_coords(draw_x, draw_y)
+        coords = self.get_drawing_pos_coords(draw_x, draw_y, window_type = window_type)
         coords.round(3) + 0.000
 
-        coords_hu = self.get_drawing_pos_texture_value(draw_x, draw_y, decimals = 2)
+        coords_hu = self.get_drawing_pos_texture_value(draw_x, draw_y, window_type = window_type, decimals = 2)
 
-        physical_coords = self.get_physical_pos_coords(draw_x, draw_y).round(3)
-        physical_voxel_coords = self.get_physical_voxel_coords(draw_x, draw_y).round(3)
+        physical_coords = self.get_physical_pos_coords(draw_x, draw_y, window_type = window_type).round(3)
+        physical_voxel_coords = self.get_physical_voxel_coords(draw_x, draw_y, window_type = window_type).round(3)
 
         spacing = ' '*18
         position_id_string = f'{position_identifier} Position'

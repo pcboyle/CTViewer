@@ -145,7 +145,13 @@ class MainView:
                              tag = self.return_texture_drawlist_tag(window_tag = window_tag))
             
             dpg.add_draw_layer(parent = self.return_texture_drawlist_tag(window_tag = window_tag), 
-                               tag = self.return_texture_drawlayer_tag(window_tag = window_tag))
+                               tag = self.return_texture_drawlayer_tag(window_tag = window_tag),
+                               user_data = {'start': start, 
+                                            'stop': stop,
+                                            'center_loc': [round(width / 2), 
+                                                           round(height / 2)],
+                                            'width': width,
+                                            'height': height})
             
             with dpg.draw_layer(parent = self.return_texture_drawlist_tag(window_tag = window_tag),
                                 tag = self.return_crosshair_drawlayer_tag(window_tag = window_tag)):

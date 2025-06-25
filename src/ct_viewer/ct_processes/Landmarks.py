@@ -104,9 +104,6 @@ class Landmarks(object):
                 Show or hide the landmark
                 Default is True. 
         """
-        # self.landmark_image_coords[self.landmark_index, 0] = image_coords[1]
-        # self.landmark_image_coords[self.landmark_index, 1] = image_coords[0]
-        # self.landmark_image_coords[self.landmark_index, 2] = image_coords[2]
 
         self.landmark_image_coords[self.landmark_index, :3] = image_coords[:]
         self.landmark_image_coords[self.landmark_index, 3] = image_coords_hu
@@ -129,13 +126,12 @@ class Landmarks(object):
         # print(f'\tLandmark {self.landmark_index} Color: {self.landmark_rgba[self.landmark_index]}')
         self.landmark_last_tag = f'{self.volume_name}||{self.landmark_index}'
         
-        landmark_circle = dpg.draw_circle(
-            drawing_coords,
-            radius = size * np.mean(geometry), 
-            color = color, 
-            parent = draw_layer,
-            tag = self.landmark_last_tag
-        )
+
+        landmark_circle = self.draw_landmark(drawing_coords,
+                                             size * np.mean(geometry),
+                                             draw_layer,
+                                             self.landmark_last_tag,
+                                             color)
 
         self.landmark_dict[landmark_circle] = self.landmark_index
         patch_texture_tag = f'{landmark_circle}||PatchTexture'
@@ -145,6 +141,23 @@ class Landmarks(object):
         self.landmark_index += 1        
         self.number_of_landmarks += 1
         self.number_of_landmarks_visible = np.sum(self.landmark_show)
+
+
+    def draw_landmark(self, 
+                      drawing_coords: tuple[int|float],
+                      radius: int|float,
+                      draw_layer: str,
+                      tag: str|int,
+                      color: tuple[float]) -> str|int:
+        
+        landmark_circle = dpg.draw_circle(
+            drawing_coords,
+            radius = radius, 
+            color = color, 
+            parent = draw_layer,
+            tag = tag)
+        
+        return landmark_circle
 
 
     def xform_voxel_to_origin_coords(self, 
