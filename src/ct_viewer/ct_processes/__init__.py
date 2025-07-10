@@ -127,8 +127,9 @@ class CTViewer:
                       self.DrawWindow.get_window_tags()[1]: 'view_plane_ortho'}}
         
         dpg.add_item_hover_handler(parent = self.item_hovered_registry, 
-                                       user_data = hover_info,
-                                       callback = self.OptionsPanel.update_hover_info)
+                                   user_data = hover_info,
+                                   callback = self.OptionsPanel.update_hover_info)
+        
         for tag in self.DrawWindow.get_window_tags():
             dpg.bind_item_handler_registry(self.DrawWindow.return_texture_drawlist_tag(tag),
                                            self.item_hovered_registry)

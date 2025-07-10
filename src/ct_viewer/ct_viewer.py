@@ -1,6 +1,7 @@
 import sys
 import argparse
 import datetime
+import time
 from pathlib import Path
 import platform
 
@@ -16,6 +17,8 @@ try:
 except:
     from __init__ import __version__
 
+
+_FRAMERATE_ = 1/80
 
 def get_gpu_memory(mempool_bytes, 
                    f_count, 
@@ -192,6 +195,7 @@ def main():
         with open(gpu_log_path, mode = 'a') as gpu_log:
             try:
                 while dpg.is_dearpygui_running():
+                    time.sleep(_FRAMERATE_)
                     if frame_count%60 == 0:
                         print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count, frame_space), 
                               file = gpu_log, 

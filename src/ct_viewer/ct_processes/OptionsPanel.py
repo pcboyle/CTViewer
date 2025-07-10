@@ -29,6 +29,7 @@ class OptionsPanel:
         self.hover_info = {'mouse_info_text_tag': '',
                            'window_type': 'view_plane',
                            'window_hovered': ''}
+        self.drawing_moved_registry = dpg.add_item_handler_registry(tag = create_tag('OptionsPanel', 'ItemHandlerRegistry', 'DrawingMoved'))
 
         # dpg.mvKey: [no mods | mod shift | mod alt], key_alias. 
         self.mouse_and_keyboard_controls = {
@@ -86,6 +87,18 @@ class OptionsPanel:
                                      callback=self.item_right_clicked, 
                                      tag = 'option_panel_mouse_click_handler',
                                      parent = G.ITEM_HANDLER_REG_TAG)
+        self.handler_list.append(dpg.last_item())
+
+
+        dpg.add_mouse_double_click_handler(button = dpg.mvMouseButton_Left,
+                                            show = False,
+                                            callback = lambda sender, app_data, user_data: self.drawing_double_clicked('OptionPanel_drawing_double_clicked',
+                                                                                                                       self.DrawWindow.get_texture_drawlist_tags(),
+                                                                                                                       [dpg.is_item_hovered(self.DrawWindow.get_texture_drawlist_tags()[0]),  
+                                                                                                                        dpg.is_item_hovered(self.DrawWindow.get_texture_drawlist_tags()[1])]),
+                                            tag = 'OptionPanel_drawing_double_clicked',
+                                            parent = G.HANDLER_REG_TAG)
+        
         self.handler_list.append(dpg.last_item())
         
         dpg.add_mouse_down_handler(button = dpg.mvMouseButton_Middle,
@@ -161,9 +174,10 @@ class OptionsPanel:
             # Orientation Group
             with dpg.group(horizontal = True, tag = 'orientation_group_options'):
                 b_height = 0
+                b_increment = 22.5
                 with dpg.group(tag = 'orientation_group_options_slider_group'):
                     for option_key in G.ORIENTATION_OPTIONS: 
-                        b_height += 22.5
+                        b_height += b_increment
                         with dpg.group(horizontal = True, 
                                        user_data = f'{G.OPTIONS_DICT[option_key]["group_tag"]}_increment_popup',
                                        tag = G.OPTIONS_DICT[option_key]['group_tag']):
@@ -218,14 +232,29 @@ class OptionsPanel:
                                user_data = False,
                                callback = self.update_frame_of_reference)
                 self.tag_list.append(dpg.last_item())
-                # self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                 
-                tag = f'orientation_{G.GROUP_LAYER_RESET_BUTTON}'
-                dpg.add_button(label = 'Reset', 
-                               tag = tag, 
-                               height = b_height, 
-                               callback = self.reset_orientation)
-                self.tag_list.append(dpg.last_item())
+                b_increment = 22
+                with dpg.group():
+                    tag = f'orientation_{G.GROUP_LAYER_RESET_BUTTON}_origin'
+                    dpg.add_button(label = 'Reset \nOrigin', 
+                                    tag = tag, 
+                                    height = 21.5 * 4, 
+                                    callback = self.reset_orientation_origin)
+                    self.tag_list.append(dpg.last_item())
+
+                    tag = f'orientation_{G.GROUP_LAYER_RESET_BUTTON}_angle'
+                    dpg.add_button(label = 'Reset \nAngle', 
+                                    tag = tag, 
+                                    height = b_increment * 3, 
+                                    callback = self.reset_orientation_angle)
+                    self.tag_list.append(dpg.last_item())
+
+                    tag = f'orientation_{G.GROUP_LAYER_RESET_BUTTON}_geometry'
+                    dpg.add_button(label = 'Reset \nZoom', 
+                                    tag = tag, 
+                                    height = b_increment * 3, 
+                                    callback = self.reset_orientation_zoom)
+                    self.tag_list.append(dpg.last_item())
             
             with dpg.group(horizontal = True, tag = 'intensity_group_options'):
                 with dpg.group(tag = 'intensity_group_options_slider_group'):
@@ -455,6 +484,10 @@ class OptionsPanel:
                 dpg.add_text('(0, 0, 0, 0)', 
                              tag = 'OptionPanel_quaternion_display')
             with dpg.group(horizontal=True):
+                dpg.add_text('G Quaternion ')
+                dpg.add_text('(0, 0, 0, 0)', 
+                             tag = 'OptionPanel_global_quaternion_display')
+            with dpg.group(horizontal=True):
                 dpg.add_text('Origin       ')
                 dpg.add_text('(0, 0, 0)', 
                              tag = 'OptionPanel_origin_vector_display')
@@ -514,10 +547,29 @@ class OptionsPanel:
                     coord_delta = np.round(current_mouse_image_coords - previous_mouse_image_coords, decimals = 0)
                     
                     dpg.set_value("origin_x_slider_current_value", dpg.get_value("origin_x_slider_current_value") - coord_delta[1])
-                    dpg.set_value("origin_y_slider_current_value", dpg.get_value("origin_y_slider_current_value") + coord_delta[0])
+                    dpg.set_value("origin_y_slider_current_value", dpg.get_value("origin_y_slider_current_value") - coord_delta[0])
                     dpg.set_value("origin_z_slider_current_value", dpg.get_value("origin_z_slider_current_value") - coord_delta[2])
 
             self.update_volume('image_mouse_move', None, None)
+
+
+    def drawing_double_clicked(self, sender, app_data, user_data):
+        if self.VolumeLayerGroups.active and sum(user_data):
+            with dpg.mutex():
+                window_type = 'view_plane' if user_data[0] else 'view_plane_ortho'
+                mouse_pos = dpg.get_drawing_mouse_pos()
+                if window_type == 'view_plane_ortho':
+                    pixel_start = self.VolumeLayerGroups.get_current_volume().TextureOrtho.pixel_start
+                    mouse_pos[0] -= pixel_start[0]
+                    mouse_pos[1] -= pixel_start[1]
+
+                coords = self.VolumeLayerGroups.get_drawing_pos_coords(*mouse_pos, window_type = window_type)
+
+                dpg.set_value("origin_x_slider_current_value", coords[1])
+                dpg.set_value("origin_y_slider_current_value", -1.0*coords[0])
+                dpg.set_value("origin_z_slider_current_value", coords[2])
+            
+            self.update_volume(sender, None, None)
 
 
     def item_right_clicked(self, sender, app_data):
@@ -661,7 +713,7 @@ class OptionsPanel:
                                                      operation_info)
 
 
-    def reset_orientation(self):
+    def reset_orientation(self, sender, app_data, user_data):
         print(f"OptionsPanel Message: Resetting orientation.")
         for orientation_option_tag in G.ORIENTATION_OPTIONS:
             dpg.set_value(f'{orientation_option_tag}_current_value', 
@@ -671,6 +723,52 @@ class OptionsPanel:
             
         self.VolumeLayerGroups.get_current_volume().reset_orientation()
         self.update_volume('Reset Volume', None, None)
+
+
+    def reset_orientation_origin(self, sender, app_data, user_data):
+        print(f"OptionsPanel Message: Resetting origin.")
+        with dpg.mutex():
+            for orientation_option_tag in ['origin_x_slider',
+                                           'origin_y_slider',
+                                           'origin_z_slider',
+                                           'norm_slider']:
+                dpg.set_value(f'{orientation_option_tag}_current_value', 
+                              G.OPTIONS_DICT[orientation_option_tag]['default_value'])
+                dpg.set_value(G.OPTIONS_DICT[orientation_option_tag]['slider_tag'], 
+                              G.OPTIONS_DICT[orientation_option_tag]['default_value'])
+                
+                print(f"\t{orientation_option_tag}: {dpg.get_value(G.OPTIONS_DICT[orientation_option_tag]['slider_tag']):.2f}")
+
+        self.update_volume('Reset Volume Origin', None, None)
+
+
+    def reset_orientation_angle(self, sender, app_data, user_data):
+        print(f"OptionsPanel Message: Resetting angles.")
+        with dpg.mutex():
+            for orientation_option_tag in ['pitch_slider', 
+                                           'yaw_slider', 
+                                           'roll_slider']:
+                dpg.set_value(f'{orientation_option_tag}_current_value', 
+                              G.OPTIONS_DICT[orientation_option_tag]['default_value'])
+                dpg.set_value(G.OPTIONS_DICT[orientation_option_tag]['slider_tag'], 
+                              G.OPTIONS_DICT[orientation_option_tag]['default_value'])
+        
+        self.VolumeLayerGroups.get_current_volume().reset_orientation_angle()
+        self.update_volume('Reset Volume Angle', None, None)
+
+
+    def reset_orientation_zoom(self, sender, app_data, user_data):
+        print(f"OptionsPanel Message: Resetting zoom.")
+        with dpg.mutex():
+            for orientation_option_tag in ['pixel_spacing_x_input',
+                                           'pixel_spacing_y_input',
+                                           'slice_thickness_input']:
+                dpg.set_value(f'{orientation_option_tag}_current_value', 
+                              G.OPTIONS_DICT[orientation_option_tag]['default_value'])
+                dpg.set_value(G.OPTIONS_DICT[orientation_option_tag]['slider_tag'], 
+                              G.OPTIONS_DICT[orientation_option_tag]['default_value'])
+                
+        self.update_volume('Reset Volume Zoom', None, None)
 
 
     def update_option_values_from_volume(self):

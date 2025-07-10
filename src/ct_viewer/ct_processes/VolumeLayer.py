@@ -311,7 +311,7 @@ class VolumeLayer(object):
         patch_widths = []
 
         orientation_info = {'origin_x': loaded_landmark_data['image_coords'][0, 1].item(),
-                            'origin_y': -1.0*loaded_landmark_data['image_coords'][0, 0].item(), 
+                            'origin_y': loaded_landmark_data['image_coords'][0, 0].item(), 
                             'origin_z': loaded_landmark_data['image_coords'][0, 2].item(),
                             'norm': loaded_landmark_data['norms'][0],
                             'pitch': loaded_landmark_data['quaternions'][0],
@@ -320,8 +320,7 @@ class VolumeLayer(object):
                             'pixel_spacing_x': loaded_landmark_data['geometries'][0, 0],
                             'pixel_spacing_y': loaded_landmark_data['geometries'][0, 1],
                             'slice_thickness': loaded_landmark_data['geometries'][0, 2],
-                            'drawlayer_tag': self.Orientation.drawlayer.current_value}
-        
+                            'drawlayer_tags': self.get_orientation().drawlayer.current_value}
         
         for landmark_index in range(loaded_landmark_data['image_coords'].shape[0]):
             quaternion = qtn.array(loaded_landmark_data['quaternions'][landmark_index])
@@ -336,24 +335,26 @@ class VolumeLayer(object):
             orientation_info['pixel_spacing_x'] = loaded_landmark_data['geometries'][landmark_index, 1].item()
             orientation_info['pixel_spacing_y'] = loaded_landmark_data['geometries'][landmark_index, 0].item()
             orientation_info['slice_thickness'] = loaded_landmark_data['geometries'][landmark_index, 2].item()
-            orientation_info['drawlayer_tag'] = self.Orientation.drawlayer.current_value
+            orientation_info['drawlayer_tags'] = [self.get_orientation().drawlayer.current_value, self.get_orientation().drawlayer_ortho.current_value]
             
-            print(f'\t{orientation_info = }')
+            # print(f'\t{orientation_info = }')
 
             print(f'\tget_landmark_patches(): Updating Orientation')
             self.update_orientation(orientation_info)
+            self.get_orientation().print_values()
+
             print(f'\tget_landmark_patches(): Updating Texture')
             self.update_texture(volume_operations, 
                                 loading_landmarks = True)
 
-            geometry = self.Orientation.geometry_vector.current_value.get().reshape((3, ))
-            patch_width = int(10 * np.mean(geometry))
+            geometry = self.get_orientation().geometry_vector.current_value.get().reshape((3, ))
+            patch_width = int(10.0 * np.mean(geometry))
 
-            drawing_coords = loaded_landmark_data['drawing_coords'][landmark_index]
+            drawing_coords = [self.texture_center, self.texture_center] # loaded_landmark_data['drawing_coords'][landmark_index]
 
             patch_x = [int(drawing_coords[0] - patch_width), int(drawing_coords[0] + patch_width + 1)]
             patch_y = [int(drawing_coords[1] - patch_width), int(drawing_coords[1] + patch_width + 1)]
-            print(f'\tget_landmark_patches(): Getting Patch')
+            print(f'\tget_landmark_patches(): Getting Patch about {drawing_coords}')
             patches.append(self.get_texture_patch(patch_x,
                                                   patch_y,
                                                   exclude_nan = False,
@@ -534,11 +535,19 @@ class VolumeLayer(object):
     
     
     def reset_orientation(self):
-        if self.orientation_control == 'Group':
-            self.Group.Orientation.reset_orientation()
+        self.get_orientation().reset_orientation()
 
-        else:
-            self.Orientation.reset_orientation()
+
+    def reset_orientation_origin(self):
+        self.get_orientation().reset_origin()
+
+
+    def reset_orientation_angle(self):
+        self.get_orientation().reset_angle()
+
+
+    def reset_orientation_zoom(self):
+        self.get_orientation().reset_geometry()
 
 
     def update_intensity(self, 
@@ -559,15 +568,12 @@ class VolumeLayer(object):
 
 
     def update_orientation(self, orientation_info:dict):
-        if self.orientation_control == 'Group':
-            self.Group.Orientation.update_orientation(**orientation_info)
-        
-        else:
-            self.Orientation.update_orientation(**orientation_info)
+        self.get_orientation().update_orientation(**orientation_info)
 
 
         print(f'VolumeLayer Message: Updating Values')
         value_tag_dict = {'OptionPanel_quaternion_display': self.print_orientation_value('quaternion'),
+                          'OptionPanel_global_quaternion_display': self.print_orientation_value('global_quaternion'),
                             'OptionPanel_origin_vector_display': self.print_orientation_value('origin_vector'),
                             'OptionPanel_norm_vector_display': self.print_orientation_value('norm_vector'),
                             'origin_x_slider_step_value': 1.0/orientation_info['pixel_spacing_x'],
@@ -708,9 +714,6 @@ class VolumeLayer(object):
                                      self.get_orientation().view_plane_ortho.get_voxel_view(),
                                      dpg.get_value('interpolation_combo_box'))
             
-        # We don't want to update the actual drawn texture if we are just loading landmarks.
-        if loading_landmarks:
-            return
         
         self.Texture.update_texture(colormap = colormap,
                                     colormap_scale_type = colormap_scale_type,
@@ -721,7 +724,8 @@ class VolumeLayer(object):
                                     # pixel_end = pixel_end,
                                     uv_min = uv_min,
                                     uv_max = uv_max,
-                                    drawlist = drawlayer)
+                                    drawlist = drawlayer,
+                                    loading_landmarks = loading_landmarks)
         
         self.TextureOrtho.update_texture(colormap = colormap,
                                          colormap_scale_type = colormap_scale_type,
@@ -732,7 +736,8 @@ class VolumeLayer(object):
                                         #  pixel_end = pixel_end,
                                          uv_min = uv_min,
                                          uv_max = uv_max,
-                                         drawlist = drawlayer_ortho)
+                                         drawlist = drawlayer_ortho,
+                                         loading_landmarks = loading_landmarks)
 
 
     def get_texture_patch(self, 
@@ -864,7 +869,7 @@ class VolumeLayer(object):
 
             return self.CTVolume.interpolate_volume(view_plane, 
                                              order = order)
-         
+        
         else:
             if type(out_mask) == type(None):
                 out_array[:] = self.CTVolume.interpolate_volume(view_plane, 
@@ -914,7 +919,7 @@ class VolumeLayer(object):
         return f"{getattr(self.Orientation, f'{value}')}"
 
 
-    def get_orientation(self):
+    def get_orientation(self) -> OptionValue.OrientationInfo:
         if self.orientation_control == 'Group':
             return self.Group.Orientation
         
@@ -1381,6 +1386,7 @@ class VolumeLayerGroup(object):
         else:
             pass
 
+
     def update_current_volume(self,
                               orientation_info: dict, 
                               intensity_info: dict,
@@ -1392,6 +1398,7 @@ class VolumeLayerGroup(object):
                                        changed_volume,
                                        operation_instance)
         
+
     def add_landmark(self, 
                      drawing_coords: tuple[int],
                      image_coords: np.ndarray, 
@@ -1422,6 +1429,7 @@ class VolumeLayerGroup(object):
                                          landmark_patch = landmark_patch,
                                          patch_size = patch_size,
                                          show_landmark = show_landmark)
+        
         
     def get_intensity_info(self, control_mode = 'Group'):
         pass
@@ -1838,64 +1846,48 @@ class VolumeLayerGroups(object):
             #         self.get_volume_by_name(group_name, volume_name).save_landmarks()
 
 
-    def load_landmarks(self, 
-                       orientation_info: dict,
-                       intensity_info: dict,
-                       control_info: dict,
-                       text_info: dict,
-                       operation_info: dict):
+    def load_landmarks(self):
         if self.active:
-            print(f'VolumeLayerGroups Message: Loading landmarks for {self.get_current_volume().name}.')
+            with dpg.mutex():
+                print(f'VolumeLayerGroups Message: Loading landmarks for {self.get_current_volume().name}.')
 
-            landmark_data = self.get_current_volume().load_landmark_data(self.get_current_orientation().origin_vector.current_value.reshape((3, )).get(),
-                                                                         self.get_current_orientation().quaternion.current_value,
-                                                                         self.get_current_orientation().geometry_vector.current_value.reshape((3, )).get())
-            
-            landmark_draw_layer_tag = self.get_current_group().landmark_draw_layer_tag
-            if landmark_data == False:
-                return
-            
-            print(f'\tget_current_volume().get_landmark_patches')
-            patches, patch_widths = self.get_current_volume().get_landmark_patches(landmark_data, self.volume_operations)
+                landmark_data = self.get_current_volume().load_landmark_data(self.get_current_orientation().origin_vector.current_value.reshape((3, )).get(),
+                                                                             self.get_current_orientation().quaternion.current_value,
+                                                                             self.get_current_orientation().geometry_vector.current_value.reshape((3, )).get())
+                
+                landmark_draw_layer_tag = self.get_current_group().landmark_draw_layer_tag
+                if landmark_data == False:
+                    return
+                
+                # print(f'\tget_current_volume().get_landmark_patches')
+                patches, patch_widths = self.get_current_volume().get_landmark_patches(landmark_data, self.volume_operations)
 
-            last_landmark_info = []
-            
-            print(f'\tget_current_group().add_landmark')
-            for landmark_index in range(len(patches)):
-                drawing_coords = tuple([landmark_data['drawing_coords'][landmark_index, :2].astype(int)[0].item(), 
-                                        landmark_data['drawing_coords'][landmark_index, :2].astype(int)[1].item()])
-                self.get_current_group().add_landmark(drawing_coords,
-                                                       landmark_data['image_coords'][landmark_index, :3],
-                                                       landmark_data['image_coords'][landmark_index, 3],
-                                                       landmark_data['voxel_coords'][landmark_index, :3], 
-                                                       landmark_data['quaternions'][landmark_index],
-                                                       landmark_data['norms'][landmark_index],
-                                                       landmark_draw_layer_tag,
-                                                       color = dpg.get_value('landmark_color_picker'),
-                                                       size = 5.0, 
-                                                       geometry = landmark_data['geometries'][landmark_index],
-                                                       landmark_patch = patches[landmark_index],
-                                                       patch_size = 2*patch_widths[landmark_index] + 1, 
-                                                       show_landmark = True)
-                print(f'\t{self.get_last_landmark() = }')
-                last_landmark_info.append(self.get_last_landmark())
-            
-            
-            print(f'\tupdate_current_volume')
-            self.update_current_volume(False,
-                                       control_info,
-                                       orientation_info,
-                                       intensity_info,
-                                       text_info,
-                                       operation_info)
-
-            print(f'\tget_current_volume().update_landmarks')
-            self.get_current_volume().update_landmarks(update_type='All',
-                                                       origin_vector = self.get_crosshair_coords(),
-                                                       quaternion = self.get_current_orientation().quaternion.current_value,
-                                                       geometry_vector = self.get_current_orientation().geometry_vector.current_value.reshape((3, )).get())
+                last_landmark_info = []
+                
+                for landmark_index in range(len(patches)):
+                    drawing_coords = tuple([landmark_data['drawing_coords'][landmark_index, :2].astype(int)[0].item(), 
+                                            landmark_data['drawing_coords'][landmark_index, :2].astype(int)[1].item()])
+                    
+                    self.get_current_group().add_landmark(drawing_coords,
+                                                         landmark_data['image_coords'][landmark_index, :3],
+                                                         landmark_data['image_coords'][landmark_index, 3],
+                                                         landmark_data['voxel_coords'][landmark_index, :3], 
+                                                         landmark_data['quaternions'][landmark_index],
+                                                         landmark_data['norms'][landmark_index],
+                                                         landmark_draw_layer_tag,
+                                                         color = dpg.get_value('landmark_color_picker'),
+                                                         size = 5.0, 
+                                                         geometry = landmark_data['geometries'][landmark_index],
+                                                         landmark_patch = patches[landmark_index],
+                                                         patch_size = 2*patch_widths[landmark_index] + 1, 
+                                                         show_landmark = True)
+                    
+                    print(f'\tCrosshair Coords: {self.get_crosshair_coords().round(decimals=3)}')
+                    # print(f'\t{self.get_last_landmark() = }')
+                    last_landmark_info.append(self.get_last_landmark())
 
             return last_landmark_info
+
 
     def get_last_landmark(self):
         return self.get_current_volume().Landmarks.get_last_landmark()
@@ -1955,7 +1947,7 @@ class VolumeLayerGroups(object):
 
     def get_crosshair_coords(self) -> np.ndarray:
         if self.active:
-            return self.get_drawing_pos_coords(int(G.TEXTURE_CENTER), int(G.TEXTURE_CENTER))
+            return self.get_current_volume().get_crosshair_coords()
         
 
     def get_physical_pos_coords(self, 

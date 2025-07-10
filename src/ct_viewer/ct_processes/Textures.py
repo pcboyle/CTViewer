@@ -274,7 +274,8 @@ class Texture(object):
                        pixel_end: list[float|int, float|int] = [None, None], 
                        uv_min: list[float|int, float|int] = [0, 0],
                        uv_max: list[float|int, float|int] = [1, 1],
-                       drawlist: str = ''):
+                       drawlist: str = '',
+                       loading_landmarks:bool = False):
         # self.texture_content has been filled with the 
         # interpolated value at this point. 
         # Now we do our windowing and assigning. 

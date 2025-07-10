@@ -153,6 +153,7 @@ class ImageTools:
                                 no_inputs = True, 
                                 callback = self.update_landmark_colors)
                 self.tag_list.append('landmark_color_picker')
+                
             with dpg.group(horizontal = True):
                 dpg.add_text(f'{"Landmark Opacity:":<18}', tag = 'landmark_opacity_factor_label')
                 dpg.add_input_float(label = '', 

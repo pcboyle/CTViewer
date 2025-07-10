@@ -290,6 +290,8 @@ class Landmarks(object):
             landmark_info_list = [self.volume_name, 
                                   self.landmark_index - 1, 
                                   self.landmark_image_coords[self.landmark_index - 1, :].round(3), 
+                                  self.landmark_geometries[self.landmark_index - 1, :],
+                                  self.landmark_quaternions[self.landmark_index - 1, :],
                                   self.landmark_last_tag,
                                   self.get_patch_tag(self.landmark_last_tag),
                                   self.landmark_patches[self.get_patch_tag(self.landmark_last_tag)]]
@@ -332,12 +334,14 @@ class Landmarks(object):
         
         return landmarks_info_dict
     
+
     def get_landmark_preview(self, 
                              landmark_index:int, 
                              view_width:float = 5.0, 
                              view_quaternion: qtn.QuaternionicArray = None) -> np.ndarray:
 
         pass
+
 
     def load_landmark_data(self, 
                            current_origin,
@@ -370,8 +374,7 @@ class Landmarks(object):
         loaded_data['image_coords'][:,0] = -1.0 * loaded_data['voxel_coords'][:,1] + 0.0
         loaded_data['image_coords'][:,2] = 1.0 * loaded_data['voxel_coords'][:,2] + 0.0
         loaded_data['image_coords'][:,3] = 1.0 * loaded_data['voxel_coords'][:,3] + 0.0
-        # loaded_data['image_coords'][:,:3] = self.xform_voxel_to_image_coords(loaded_data['voxel_coords'])
-        # loaded_data['image_coords'][:,1] *= -1.0 + 0.0
+
         loaded_data['drawing_coords'][:] = self.get_landmark_drawing_coords(loaded_data['image_coords'], 
                                                                             current_origin,
                                                                             current_quaternion, 

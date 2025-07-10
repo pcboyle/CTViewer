@@ -257,6 +257,8 @@ class InformationBox(object):
                      volume_name, 
                      landmark_index,
                      landmark_coords,
+                     landmark_geometry,
+                     landmark_quaternion,
                      landmark_id,
                      landmark_patch_id,
                      landmark_patch,
@@ -266,6 +268,8 @@ class InformationBox(object):
         # print(f'\tvolume_name           : {volume_name}')
         # print(f'\tlandmark_index        : {landmark_index}')
         # print(f'\tlandmark_coords       : {landmark_coords}')
+        # print(f'\tlandmark_quaternion   : {tlandmark_quaternion}')
+        # print(f'\tlandmark_geometry     : {landmark_geometry}')
         # print(f'\tlandmark_id           : {landmark_id}')
         # print(f'\tlandmark_patch_id     : {landmark_patch_id}')
         # print(f'\tlandmark_patch        : {landmark_patch}')
@@ -274,7 +278,9 @@ class InformationBox(object):
         with dpg.mutex():
             with dpg.table_row(parent=f'{volume_name}_landmarks_table', 
                                tag = f'{volume_name}_landmark_{landmark_index}_row', 
-                               user_data = landmark_coords):
+                               user_data = [landmark_coords, 
+                                            landmark_geometry, 
+                                            landmark_quaternion]):
                 self.items.append(f'{volume_name}_landmark_{landmark_index}_row')
 
                 dpg.add_selectable(label = f'{current_row}', 
@@ -365,7 +371,7 @@ class InformationBox(object):
     def landmark_double_clicked(self, sender, app_data, user_data):
         if self.VolumeLayerGroups.active:
             _, row_child = app_data
-            location = dpg.get_item_user_data(dpg.get_item_parent(row_child))
+            location, geometry, quaternion = dpg.get_item_user_data(dpg.get_item_parent(row_child))
 
             origin_x = np.round(location[1], decimals = 2) + 0.0
             origin_y = np.round(-1.0*location[0], decimals = 2) + 0.0
@@ -374,6 +380,21 @@ class InformationBox(object):
             dpg.set_value('origin_x_slider_current_value', origin_x)
             dpg.set_value('origin_y_slider_current_value', origin_y)
             dpg.set_value('origin_z_slider_current_value', origin_z)
+
+            pixel_spacing_x = np.round(geometry[1], decimals = 2) + 0.0
+            pixel_spacing_y = np.round(geometry[0], decimals = 2) + 0.0
+            slice_thickness = np.round(geometry[2], decimals = 2) + 0.0
+
+            dpg.set_value('pixel_spacing_x_input_current_value', pixel_spacing_x)
+            dpg.set_value('pixel_spacing_y_input_current_value', pixel_spacing_y)
+            dpg.set_value('slice_thickness_input_current_value', slice_thickness)
+
+            quaternion = qtn.array(quaternion)
+            yaw, pitch, roll = quaternion.to_axis_angle
+
+            dpg.set_value('yaw_slider_current_value', yaw)
+            dpg.set_value('pitch_slider_current_value', pitch)
+            dpg.set_value('roll_slider_current_value', roll)
 
             self.OptionsPanel.update_volume('InformationBox.landmark_double_clicked', None, None)
 

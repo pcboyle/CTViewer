@@ -178,15 +178,14 @@ class MenuBar:
     def load_landmarks(self):
         if self.classes_assigned:
             print('MenuBar Message: Loading Landmarks.')
-            loaded_landmarks = self.VolumeLayerGroups.load_landmarks(self.OptionsPanel.get_orientation_info(),
-                                                                     self.OptionsPanel.get_intensity_info(),
-                                                                     self.OptionsPanel.get_control_info(),
-                                                                     self.OptionsPanel.get_text_info(),
-                                                                     self.ImageTools.get_operation_info())
+            loaded_landmarks = self.VolumeLayerGroups.load_landmarks()
+            
             print('MenuBar Message: Adding loaded_landmarks.')
             for landmark_info in loaded_landmarks: 
                 print(f'\t{landmark_info = }')
                 self.InformationBox.add_landmark(*landmark_info)
+
+            self.OptionsPanel.update_volume('load_landmarks', None, None)
 
     def open_analysis_window(self):
         if G.FILE_LOADED:
@@ -368,14 +367,14 @@ class MenuBar:
                     z       -   Negative change in image index            -
                     c       -   Positive change in image index            -
 
-            Shift + a       -   Negative pitch of volume                  -   Rotates about X, moves Z into Y. 
-            Shift + d       -   Positive pitch of volume                  -   Rotates about X, moves Y into Z. 
+            Shift + a       -   Negative roll of volume                   -   Rotates about Z, moves Y into X. 
+            Shift + d       -   Positive roll of volume                   -   Rotates about Z, moves X into Y. 
 
-            Shift + w       -   Negative yaw of volume                    -   Rotates about Y, moves Z into X. 
-            Shift + s       -   Positive yaw of volume                    -   Rotates about Y, moves X into Z. 
+            Shift + w       -   Negative pitch of volume                  -   Rotates about X, moves Z into Y. 
+            Shift + s       -   Positive pitch of volume                  -   Rotates about X, moves Y into Z. 
 
-            Shift + q       -   Negative roll of volume                   -   Rotates about Z, moves Y into X. 
-            Shift + e       -   Positive roll of volume                   -   Rotates about Z, moves X into Y. 
+            Shift + q       -   Negative yaw of volume                    -   Rotates about Y, moves Z into X. 
+            Shift + e       -   Positive yaw of volume                    -   Rotates about Y, moves X into Z. 
 
             Shift + z       -   Swaps between Group and Local control     -  
             Shift + c       -   Swaps between Group and Local control     - 
