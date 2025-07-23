@@ -310,16 +310,16 @@ class VolumeLayer(object):
         patches = []
         patch_widths = []
 
-        orientation_info = {'origin_x': loaded_landmark_data['image_coords'][0, 1].item(),
-                            'origin_y': loaded_landmark_data['image_coords'][0, 0].item(), 
-                            'origin_z': loaded_landmark_data['image_coords'][0, 2].item(),
-                            'norm': loaded_landmark_data['norms'][0],
-                            'pitch': loaded_landmark_data['quaternions'][0],
-                            'yaw': loaded_landmark_data['norms'][0],
-                            'roll': loaded_landmark_data['norms'][0],
-                            'pixel_spacing_x': loaded_landmark_data['geometries'][0, 0],
-                            'pixel_spacing_y': loaded_landmark_data['geometries'][0, 1],
-                            'slice_thickness': loaded_landmark_data['geometries'][0, 2],
+        orientation_info = {'origin_x': 0.0,
+                            'origin_y': 0.0, 
+                            'origin_z': 0.0,
+                            'norm': 0.0,
+                            'pitch': 0.0,
+                            'yaw': 0.0,
+                            'roll': 0.0,
+                            'pixel_spacing_x': 1.0,
+                            'pixel_spacing_y': 1.0,
+                            'slice_thickness': 1.0,
                             'drawlayer_tags': self.get_orientation().drawlayer.current_value}
         
         for landmark_index in range(loaded_landmark_data['image_coords'].shape[0]):
@@ -332,18 +332,18 @@ class VolumeLayer(object):
             orientation_info['pitch'] = pitch.item()
             orientation_info['yaw'] = yaw.item()
             orientation_info['roll'] = roll.item()
+            orientation_info['quaternion'] = quaternion
             orientation_info['pixel_spacing_x'] = loaded_landmark_data['geometries'][landmark_index, 1].item()
             orientation_info['pixel_spacing_y'] = loaded_landmark_data['geometries'][landmark_index, 0].item()
             orientation_info['slice_thickness'] = loaded_landmark_data['geometries'][landmark_index, 2].item()
             orientation_info['drawlayer_tags'] = [self.get_orientation().drawlayer.current_value, self.get_orientation().drawlayer_ortho.current_value]
             
-            # print(f'\t{orientation_info = }')
 
-            print(f'\tget_landmark_patches(): Updating Orientation')
-            self.update_orientation(orientation_info)
-            self.get_orientation().print_values()
+            # print(f'\tget_landmark_patches(): Updating Orientation')
+            self.reset_orientation()
+            self.update_orientation(orientation_info, update_type = 'Set')
 
-            print(f'\tget_landmark_patches(): Updating Texture')
+            # print(f'\tget_landmark_patches(): Updating Texture')
             self.update_texture(volume_operations, 
                                 loading_landmarks = True)
 
@@ -354,7 +354,7 @@ class VolumeLayer(object):
 
             patch_x = [int(drawing_coords[0] - patch_width), int(drawing_coords[0] + patch_width + 1)]
             patch_y = [int(drawing_coords[1] - patch_width), int(drawing_coords[1] + patch_width + 1)]
-            print(f'\tget_landmark_patches(): Getting Patch about {drawing_coords}')
+            # print(f'\tget_landmark_patches(): Getting Patch about {drawing_coords}')
             patches.append(self.get_texture_patch(patch_x,
                                                   patch_y,
                                                   exclude_nan = False,
@@ -462,6 +462,7 @@ class VolumeLayer(object):
                    orientation_info: dict, 
                    intensity_info: dict,
                    changed_volume: bool,
+                   update_type:str,
                    operation_instance: VolumeOperations.VolumeOperations):
         
         for key, value in orientation_info.items():
@@ -469,7 +470,8 @@ class VolumeLayer(object):
         
         with dpg.mutex():
             print(f'VolumeLayer Message: Updating Orientation')
-            self.update_orientation(orientation_info)
+            self.update_orientation(orientation_info, update_type = update_type)
+            # self.get_orientation().print_values()
 
             print(f'VolumeLayer Message: Updating Intensity')
             self.update_intensity(intensity_info)
@@ -567,8 +569,12 @@ class VolumeLayer(object):
                            window_size = intensity_info['window_size'])
 
 
-    def update_orientation(self, orientation_info:dict):
-        self.get_orientation().update_orientation(**orientation_info)
+    def update_orientation(self, orientation_info:dict, update_type:str = 'Update'):
+        if update_type == 'Set':
+            self.get_orientation().set_orientation(**orientation_info)
+
+        else:
+            self.get_orientation().update_orientation(**orientation_info)
 
 
         print(f'VolumeLayer Message: Updating Values')
@@ -585,6 +591,8 @@ class VolumeLayer(object):
         
         for value_tag, value in value_tag_dict.items():
             dpg.set_value(value_tag, value)
+
+        dpg.set_item_user_data('OptionPanel_quaternion_display', self.get_orientation().quaternion.current_value)
 
         dpg.configure_item('origin_x_slider', 
                             step = dpg.get_value('origin_x_slider_step_value'),
@@ -1391,11 +1399,13 @@ class VolumeLayerGroup(object):
                               orientation_info: dict, 
                               intensity_info: dict,
                               changed_volume: bool,
+                              update_type: str,
                               operation_instance: VolumeOperations.VolumeOperations):
         
         self.current_volume.update_all(orientation_info, 
                                        intensity_info,
                                        changed_volume,
+                                       update_type,
                                        operation_instance)
         
 
@@ -1626,6 +1636,7 @@ class VolumeLayerGroups(object):
     def update_current_volume(self, 
                               changed_volume: bool|None,
                               control_info: dict,
+                              update_type: str, 
                               orientation_info: dict,
                               intensity_info: dict,
                               text_info: dict,
@@ -1635,7 +1646,7 @@ class VolumeLayerGroups(object):
         We already ensured that the OptionPanel reflects the current volume in update_control, which
         handles switching between volumes and between Group-Layer control. 
         """
-        orientation_info['apply_scaling'] = not changed_volume
+        # orientation_info['apply_scaling'] = not changed_volume
         # Control update is handled in OptionsPanel.update_image_index and update_frame_of_reference
         self.update_operation(operation_info)
         print(f'VolumeLayerGroups Message:')
@@ -1643,6 +1654,7 @@ class VolumeLayerGroups(object):
         self.get_current_group().update_current_volume(orientation_info,
                                                        intensity_info,
                                                        changed_volume,
+                                                       update_type,
                                                        self.volume_operations)
         
         crosshair_draw_pos = self.get_crosshair_drawing_pos()
@@ -1859,6 +1871,7 @@ class VolumeLayerGroups(object):
                 if landmark_data == False:
                     return
                 
+                self.get_current_volume().reset_orientation()
                 # print(f'\tget_current_volume().get_landmark_patches')
                 patches, patch_widths = self.get_current_volume().get_landmark_patches(landmark_data, self.volume_operations)
 

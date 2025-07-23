@@ -203,6 +203,7 @@ def main():
                               end = '')
                     dpg.render_dearpygui_frame()
                     frame_count += 1
+                    # print(f'APP MESSAGE: FRAME COUNT: {frame_count:>10}')
                     
 
             except:

@@ -36,6 +36,7 @@ class Landmarks(object):
         self.landmark_voxel_coords = np.zeros((self.max_landmarks, 3), dtype = np.float32) # Actual position in image voxel index space, get_physical_voxel_coords
         self.landmark_drawing_coords = np.zeros((self.max_landmarks, 3), dtype = np.float32) #(x, y, unscaled distance)
         self.landmark_distances = np.zeros(self.max_landmarks, dtype = np.float32) # Scaled distances
+        self.landmark_angles = np.zeros((self.max_landmarks, 3), dtype = np.float32) # pitch, yaw, roll
         self.landmark_quaternions = np.zeros((self.max_landmarks, 4), dtype = np.float32)
         self.landmark_norms = np.zeros((self.max_landmarks, 3), dtype = np.float32)
         self.landmark_geometries = np.zeros((self.max_landmarks, 3), dtype = np.float32)

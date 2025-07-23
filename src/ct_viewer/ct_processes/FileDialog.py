@@ -284,6 +284,17 @@ class FileDialog(object):
                              'Anchor': 19}
 
     def detect_dicom_dir(file_path: Path):
+        """
+        Detects files in a DICOM directory. Can only handle image files that contain the following fields:
+            seriesUID
+            bit_depth
+            rows
+            cols
+            direction_cosines
+            affine
+            slice_thickness
+            pixel_spacing
+        """
         with dpg.mutex():
             dcm_files = sorted(list(file_path.glob('*.dcm')))
             n_files = len(dcm_files)
@@ -306,11 +317,13 @@ class FileDialog(object):
 
                 scanned = scanner.Scan(file_names)
 
-                im_pos_array = np.zeros((n_files,3), dtype = np.float64)
+                im_pos_array = np.zeros((n_files,3), dtype = np.float32)
+                slice_locations = np.zeros(n_files, dtype = np.float32)
 
                 for file_index, file in enumerate(file_names):
                     pttv = gdcm.PythonTagToValue(scanner.GetMapping(file))
                     pttv.Start()
+
                     while (not pttv.IsAtEnd()):
                         tag:str = pttv.GetCurrentTag()
                         value:str = pttv.GetCurrentValue()
@@ -335,6 +348,8 @@ class FileDialog(object):
                                 slice_thickness = float(value.strip())
                             case "00280030":
                                 pix_spacing = np.array(value.strip().split('\\'), dtype = float)
+                            case "00201041":
+                                slice_locations[file_index] = float(value.strip())
                         pttv.Next()
 
                     if f'{seriesUID}' not in dcm_dir_contents:
@@ -343,12 +358,14 @@ class FileDialog(object):
                                                             'shape': [cols, rows, 0], 
                                                             'dtype': f'int{bit_depth}',
                                                             'im_pos': np.zeros((n_files, 3)),
-                                                            'direction_cosines':np.zeros(6),
+                                                            'slice_location': np.zeros(n_files),
+                                                            'direction_cosines': np.zeros(6),
                                                             'affine': np.eye(4,4)}
 
                     dcm_dir_contents[seriesUID]['files'].append(file)
                     dcm_dir_contents[seriesUID]['shape'][2] += 1
                     dcm_dir_contents[seriesUID]['im_pos'][:] = im_pos_array[:] # X, Y, Z
+                    dcm_dir_contents[seriesUID]['slice_location'][:] = slice_locations[:]
 
                 dcm_dir_contents[seriesUID]['direction_cosines'][:] = dir_cos[:]
                 dcm_dir_contents[seriesUID]['affine'][:3,0] = dir_cos[:3]*pix_spacing[1] # Delta Col
@@ -511,14 +528,14 @@ class FileDialog(object):
                            'dicom': self.dicom_theme,
                            'nifti': self.nifti_theme}
         # self.default_table_size = [0.56, 0.1, 0.215, 0.125]
-        self.default_table_size = [0.38, 0.15, 0.30, 0.17]
+        self.default_table_size = [0.575, 0.10, 0.20, 0.125]
         self.chosen_file_nodes = {}
         self.chosen_table_theme = create_tag('FileDialog', 'Theme', 'ChosenFilesTable')
         self.current_sort_app_data = []
         self.current_filter_app_data = []
         self.chosen_table_user_data = [0, []] # current_indent_level, [selected_rows]
         self.chosen_volume_text_tag = create_tag('FileDialog', 'Text', 'ChosenVolumes')
-
+        self.is_windows_drive_parent = False
         self.last_selected_file = None
         self.parsed_file = None
         self.load_file_dict = None
@@ -589,7 +606,8 @@ class FileDialog(object):
             
             with dpg.group(horizontal=True, tag = create_tag('FileDialog', 'Group', 'FileDialogContents')):
                 with dpg.child_window(tag = create_tag('FileDialog', 'Window', 'CurrentDirectoryContents'), 
-                                      width = 500, height = 350):
+                                      width = 750, 
+                                      height = 350):
                     with dpg.group(horizontal = True, 
                                    tag = self.navigation_buttons_group_tag):
                         
@@ -600,14 +618,14 @@ class FileDialog(object):
                                        tag = self.go_up_directory_button_tag, 
                                        arrow = True, 
                                        direction = dpg.mvDir_Up,
-                                       callback = self.change_current_directory)
+                                       callback = self.go_up_directory)
 
                         dpg.add_button(label = 'R', 
                                        width = 19, 
                                        height = 19, 
                                        user_data = False,
                                        tag = self.refresh_directory_button_tag,
-                                       callback = self.refresh_current_directory)
+                                       callback = self.refresh_directory_button)
                         
                         dpg.add_text(f'{self.format_displayed_path(self.current_directory)}', 
                                      tag = self.current_directory_text_tag)
@@ -639,10 +657,12 @@ class FileDialog(object):
                     with dpg.group(horizontal = True, tag = create_tag('FileDialog', 'HorizontalGroup', 'FileSelectionParams')):
                         dpg.add_combo(items = list(self.file_extension_dict.keys()), # app_data of form [selected_string]
                                       tag = self.file_filter_combobox_tag,
-                                      width = -0, default_value = list(self.file_extension_dict.keys())[0],
+                                      width = -0, 
+                                      default_value = list(self.file_extension_dict.keys())[0],
                                       callback = self.filter_table_results_callback) 
                         self.filter_combobox_app_data = list(self.file_extension_dict.keys())[0]
-                        dpg.add_button(label = 'Deselect All', tag = create_tag('FileDialog', 'Button', 'DeselectAll'),
+                        dpg.add_button(label = 'Deselect All', 
+                                       tag = create_tag('FileDialog', 'Button', 'DeselectAll'),
                                        width=-1, callback = self.deselect_all)
                         
                 if self.debug:
@@ -668,7 +688,11 @@ class FileDialog(object):
                 #     dpg.add_text(default_value = '', tag = self.chosen_volume_text_tag)
 
         if not self.has_parent:
-            dpg.create_viewport(title='Custom File Dialog', width = 1720, height = 1080, x_pos = 10, y_pos = 10)
+            dpg.create_viewport(title='File Dialog', 
+                                width = 1720, 
+                                height = 1080, 
+                                x_pos = 10, 
+                                y_pos = 10)
             dpg.setup_dearpygui()
             dpg.set_primary_window(self.file_dialog_window, True)
             dpg.show_viewport()
@@ -788,7 +812,7 @@ class FileDialog(object):
         user_data: self.current_directory_file_dict or similar
         """
 
-        print(f'FileDialog Message: Sort files callback:\n{sender = }\n{app_data = }')
+        print(f'FileDialog Message: Sort files callback:\n{sender = }\n{app_data = }', flush = True)
     
         if app_data is None: 
             return
@@ -816,7 +840,7 @@ class FileDialog(object):
         sorted_indices = self.multisort(values_to_sort, s_specs, make_copy = True, return_sorted_list = False)
         
         dpg.reorder_items(sender, 1, sorted_indices)
-        print('FileDialog Message: Sorting done')
+        print('FileDialog Message: Sorting done', flush = True)
     
 
     def filter_table_results_callback(self, sender, app_data):
@@ -886,30 +910,37 @@ class FileDialog(object):
         pass
                         
 
-    def refresh_current_directory(self, sender, app_data, is_windows_drive_parent):
-        with dpg.mutex():
-            self.reset_table_rows(self.file_dialog_table_tag)
+    def refresh_current_directory(self, sender, app_data, is_windows_drive_parent = False):
+        self.reset_table_rows(self.file_dialog_table_tag)
 
-            self.current_directory_file_dict.clear()
-            self.table_row_tag_to_index.clear()
-            self.table_row_index_to_tag.clear()
+        self.current_directory_file_dict.clear()
+        self.table_row_tag_to_index.clear()
+        self.table_row_index_to_tag.clear()
 
-            self.parse_files_in_path(self.current_directory, 
-                                     is_windows_drive_parent = is_windows_drive_parent) # self.current_directory_file_dict, self.file_extension_dict
-            self.populate_table_rows(self.file_dialog_table_tag, self.current_directory_file_dict)
-            self.bind_table_rows(G.ITEM_HANDLER_REG_TAG, self.file_dialog_table_tag)
+        self.parse_files_in_path(self.current_directory, 
+                                 is_windows_drive_parent = is_windows_drive_parent) # self.current_directory_file_dict, self.file_extension_dict
+        
+        print('Populating Table Rows')
+        self.populate_table_rows(self.file_dialog_table_tag, self.current_directory_file_dict)
+        print('Binding Table Rows')
+        self.bind_table_rows(G.ITEM_HANDLER_REG_TAG, self.file_dialog_table_tag)
 
-            for file_id in self.selected_rows_dict.keys():
-                for table_row in self.table_row_tag_to_index.keys():
-                    if file_id in table_row:
-                        dpg_id = self.table_row_tag_to_index[table_row]
-                        # We only need the first column since that selectable covers the entire row. 
-                        for row_child in dpg.get_item_children(dpg_id, 1)[:1]:
-                            dpg.set_value(row_child, True)
-
-            self.filter_table_results_callback(self.file_filter_combobox_tag, dpg.get_value(self.file_filter_combobox_tag))
-            self.sort_files_callback(self.file_dialog_table_tag, self.current_sort_app_data, dpg.get_item_user_data(self.file_dialog_table_tag))
-        print(f'FileDialog Message: Directory {self.current_directory} refreshed.')
+        for file_id in self.selected_rows_dict.keys():
+            for table_row in self.table_row_tag_to_index.keys():
+                if file_id in table_row:
+                    dpg_id = self.table_row_tag_to_index[table_row]
+                    # We only need the first column since that selectable covers the entire row. 
+                    for row_child in dpg.get_item_children(dpg_id, 1)[:1]:
+                        dpg.set_value(row_child, True)
+        
+        print('Filter Callback Table Rows')
+        self.filter_table_results_callback(self.file_filter_combobox_tag, dpg.get_value(self.file_filter_combobox_tag))
+        
+        print('Sort Files Callback')
+        self.sort_files_callback(self.file_dialog_table_tag, self.current_sort_app_data, dpg.get_item_user_data(self.file_dialog_table_tag))
+        
+        print(f'FileDialog Message: Directory {self.current_directory} refreshed.', flush = True)
+        print(f'\t{self.current_directory}')
 
     def double_click_callback(self, sender, app_data):
         if not dpg.is_item_shown(self.file_dialog_window):
@@ -918,44 +949,59 @@ class FileDialog(object):
         with dpg.mutex():
             # Gets parent 
             user_data = dpg.get_item_user_data(app_data[1])[1]
-            if dpg.is_item_shown(self.file_dialog_window):
-                if sender == self.go_up_directory_button_tag:
-                    self.change_current_directory(sender, app_data, user_data)
+            if sender == self.go_up_directory_button_tag:
+                self.change_current_directory(sender, app_data, user_data)
+                self.refresh_current_directory(None, None, self.is_windows_drive_parent)
+                print('FileDialog Message: double_click_callback', flush = True)
+                print(f'\t{sender = }')
 
-                elif user_data['Is Dir']:
-                    self.change_current_directory(sender, app_data, user_data)
+            elif user_data['Is Dir']:
+                self.change_current_directory(sender, app_data, user_data)
+                self.refresh_current_directory(None, None, self.is_windows_drive_parent)
+                print('FileDialog Message: double_click_callback', flush = True)
+                print(f'\t{user_data['Is Dir'] = }', flush = True)
+                
+            else:
+                return
+            
 
-                else:
-                    return
-        return
+    def go_up_directory(self, sender, app_data, user_data):
+        with dpg.mutex():
+            self.change_current_directory(sender, app_data, user_data)
+            self.refresh_current_directory(None, None, self.is_windows_drive_parent)
+
+
+    def refresh_directory_button(self, sender, app_data, user_data):
+        with dpg.mutex():
+            self.refresh_current_directory(sender, app_data, user_data)
+
 
     def change_current_directory(self, sender, app_data, user_data):
-        is_windows_drive_parent = False
-        with dpg.mutex():
-            if sender == self.go_up_directory_button_tag:
-                print(f'FileDialog Message: \tChanging directory to {self.current_directory.parent}.')
-                self.current_directory = self.current_directory.parent
-                
-                if len(self.drive_letters) > 0:
-                    print(self.current_directory.as_posix())
-                    if self.current_directory.as_posix() in self.drive_letters: 
-                        is_windows_drive_parent = True
-                        self.current_directory = Path('WindowsDrives')
-
-            else:
-                item_tag = dpg.get_item_alias(app_data[1])
-                print(f'FileDialog Message: \tChanging directory to {user_data['File']}.')
-                if user_data['Is Dir']:
-                    self.current_directory = Path(user_data['File'])
-                else:
-                    pass
+        if sender == self.go_up_directory_button_tag:
+            print(f'FileDialog Message: \tChanging directory to {self.current_directory.parent}.')
+            self.current_directory = self.current_directory.parent
             
-            displayed_path = self.format_displayed_path(self.current_directory, max_length=415, scale_factor=7.0)
+            if len(self.drive_letters) > 0:
+                print(self.current_directory.as_posix())
+                if self.current_directory.as_posix() in self.drive_letters: 
+                    self.is_windows_drive_parent = True
+                    self.current_directory = Path('WindowsDrives')
+            else:
+                self.is_windows_drive_parent = False
 
-            dpg.set_value(self.current_directory_text_tag, f'{displayed_path}')
+        else:
+            item_tag = dpg.get_item_alias(app_data[1])
+            print(f'FileDialog Message: \tChanging directory to {user_data['File']}.', flush = True)
+            if user_data['Is Dir']:
+                self.current_directory = Path(user_data['File'])
+            else:
+                pass
+        
+        displayed_path = self.format_displayed_path(self.current_directory, max_length=415, scale_factor=7.0)
 
-        self.refresh_current_directory(None, None, is_windows_drive_parent)
-        if not is_windows_drive_parent:
+        dpg.set_value(self.current_directory_text_tag, f'{displayed_path}')
+
+        if not self.is_windows_drive_parent:
             G.CONFIG_DICT['directories']['image_dir'] = Path(self.current_directory).as_posix()
 
     def format_displayed_path(self, path:Path, max_length = 415, scale_factor = 7.0):
@@ -1083,8 +1129,10 @@ class FileDialog(object):
         f_info_dict = {}
         for f_info in FileDialog.file_info_object.keys():
             f_info_dict[f_info] = FileDialog.file_info_object[f_info](filepath)
+
         if type(f_info_dict['Dicom Dir']) == type(dict()):
             f_info_dict['File Type'] = 'dicom_dir'
+
         if format_file_info:
             for f_info in FileDialog.file_info_formatter.keys():
                 if f_info in exclude:
@@ -1106,7 +1154,7 @@ class FileDialog(object):
 
         else:
             for file in path.glob('*'):
-                print(f'FileDialog Message: FILE_PARSER: {file.name}')
+                print(f'FileDialog Message: FILE_PARSER: {file.name}', flush = True)
                 file_id = FileDialog.get_file_id(file)
                 self.current_directory_file_dict[f'{file_id}'] = self.get_file_info(file, format_file_info = True, exclude = ['Size'])
                 match self.current_directory_file_dict[f'{file_id}']['Suffix']:
@@ -1427,7 +1475,9 @@ class DataLoader(object):
                         modal=False, 
                         show=False, 
                         tag=G.LOADING_WINDOW_TAG,
-                        width = 800, height = 400, pos = [250, 250]):
+                        width = 800, 
+                        height = 400, 
+                        pos = [250, 250]):
             dpg.add_text('', tag=G.LOADING_WINDOW_TEXT)
 
     def load_selected_files(self, 

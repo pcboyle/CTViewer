@@ -265,14 +265,14 @@ class InformationBox(object):
                      texture_registry = 'main_texture_registry'):
         
         print('InformationBox Message: add_landmark')
-        # print(f'\tvolume_name           : {volume_name}')
-        # print(f'\tlandmark_index        : {landmark_index}')
-        # print(f'\tlandmark_coords       : {landmark_coords}')
-        # print(f'\tlandmark_quaternion   : {tlandmark_quaternion}')
-        # print(f'\tlandmark_geometry     : {landmark_geometry}')
-        # print(f'\tlandmark_id           : {landmark_id}')
-        # print(f'\tlandmark_patch_id     : {landmark_patch_id}')
-        # print(f'\tlandmark_patch        : {landmark_patch}')
+        print(f'\tvolume_name           : {volume_name}')
+        print(f'\tlandmark_index        : {landmark_index}')
+        print(f'\tlandmark_coords       : {landmark_coords}')
+        print(f'\tlandmark_quaternion   : {landmark_quaternion}')
+        print(f'\tlandmark_geometry     : {landmark_geometry}')
+        print(f'\tlandmark_id           : {landmark_id}')
+        print(f'\tlandmark_patch_id     : {landmark_patch_id}')
+        print(f'\tlandmark_patch        : {landmark_patch}')
         
         current_row = len(dpg.get_item_children(f'{volume_name}_landmarks_table', slot = 1)) + 1
         with dpg.mutex():
@@ -326,8 +326,8 @@ class InformationBox(object):
                                                tag = landmark_patch_id,
                                                parent = texture_registry)
                         dpg.draw_image(landmark_patch_id,
-                                    pmin = [0, 0], 
-                                    pmax = [115, 115])
+                                       pmin = [0, 0],
+                                       pmax = [115, 115])
                         
                     dpg.add_button(label = 'Remove Landmark', 
                                 user_data = [volume_name, landmark_id],
@@ -369,6 +369,12 @@ class InformationBox(object):
                     dpg.show_item(popup_id)
 
     def landmark_double_clicked(self, sender, app_data, user_data):
+        """
+        dpg.get_item_user_data(dpg.get_item_parent(row_child)):
+            user_data = [landmark_coords, 
+                         landmark_geometry, 
+                         landmark_quaternion]
+        """
         if self.VolumeLayerGroups.active:
             _, row_child = app_data
             location, geometry, quaternion = dpg.get_item_user_data(dpg.get_item_parent(row_child))
@@ -390,13 +396,18 @@ class InformationBox(object):
             dpg.set_value('slice_thickness_input_current_value', slice_thickness)
 
             quaternion = qtn.array(quaternion)
-            yaw, pitch, roll = quaternion.to_axis_angle
+            print(f'Rotation Matrix: \n\t{quaternion.to_rotation_matrix}')
+            print(f'Spherical      : \n\t{quaternion.to_spherical_coordinates}')
+            print(f'Scalar, Vector : \n\t{quaternion.scalar}, {quaternion.vector}')
+            print(f'Align          : \n\t{qtn.align(np.array([[0.0, 0.0, -1.0]]), quaternion.rotate(np.array([[0.0, 0.0, -1.0]]), axis = -1))}')
+            yaw, pitch, roll = np.rad2deg(quaternion.to_axis_angle)
+            dpg.set_item_user_data('OptionPanel_quaternion_display', quaternion)
 
-            dpg.set_value('yaw_slider_current_value', yaw)
-            dpg.set_value('pitch_slider_current_value', pitch)
-            dpg.set_value('roll_slider_current_value', roll)
+            # dpg.set_value('yaw_slider_current_value', np.round(-1.0*yaw, decimals = 4) + 0.0)
+            # dpg.set_value('pitch_slider_current_value', np.round(pitch, decimals = 4) + 0.0)
+            # dpg.set_value('roll_slider_current_value', np.round(roll, decimals = 4) + 0.0)
 
-            self.OptionsPanel.update_volume('InformationBox.landmark_double_clicked', None, None)
+            self.OptionsPanel.update_volume('InformationBox.landmark_double_clicked', 'Set', None)
 
 
     def reset_histogram_plot(self):

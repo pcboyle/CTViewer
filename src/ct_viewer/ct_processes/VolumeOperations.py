@@ -16,7 +16,8 @@ class VolumeOperations(object):
         self.texture_content        -> ndarray  Final texture content. Shape (texture_dim, texture_dim)
         
         The max_volume_size parameter determines the size, and therefore GPU memory footprint, of the interpolation volume. 
-        A volume of size (256, 860, 860) of float32's is ~760 MB, with the GPU using ~3 GB of VRAM between self.interpolation slab and self.volume slab.
+        A volume of size (512, 860, 860) of float32's is ~1150 MB. 
+        The GPU uses ~6 GB of VRAM between self.interpolation (4.5 GB) slab and self.volume (1.5 GB) slab.
         
         """
 

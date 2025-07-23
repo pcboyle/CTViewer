@@ -255,6 +255,7 @@ class OrientationInfo(object):
         self.quaternion = QuaternionValue(tag = 'quaternion', default_quaternion = 1.0*default_quaternion)
         self.global_quaternion = QuaternionValue(tag = 'quaternion', default_quaternion = 1.0*default_quaternion)
         self.origin_vector = VectorValue(tag = 'origin_vector', default_vector = 1.0*cp.array([[0.0], [0.0], [0.0]]))
+        self.scaled_origin_vector = VectorValue(tag = 'scaled_origin_vector', default_vector = 1.0*cp.array([[0.0], [0.0], [0.0]]))
         self.norm_vector = VectorValue(tag='norm_vector', default_vector = 1.0*cp.array([[0.0], [0.0], [default_norm_sign]])) # Start by looking along Z axis, Axial View.
         self.viewport_origin_vector = VectorValue(tag = 'viewport_origin', default_vector = 1.0*cp.array([[0.0], [0.0], [0.0]]))
         self.pixel_spacing_x = OptionValue(tag = G.OPTION_TAG_DICT['pixel_spacing_x'], default_value = 1.0*default_geometry[0], default_limits = default_limits_geometry, default_step = 0.1)
@@ -310,43 +311,58 @@ class OrientationInfo(object):
 
 
     def set_orientation(self, 
-                        pitch:float,
-                        yaw:float,
-                        roll:float,
-                        norm:float,
-                        origin_x:float, 
-                        origin_y:float,
-                        origin_z:float,
-                        pixel_spacing_x:float,
-                        pixel_spacing_y:float,
-                        slice_thickness:float): 
-        
-        with dpg.mutex():
-            self.pitch.set_current_value(pitch)
-            self.roll.set_current_value(roll)
-            self.yaw.set_current_value(yaw)
-            self.norm.set_current_value(norm)
-            self.origin_x.set_current_value(origin_x)
-            self.origin_y.set_current_value(origin_y)
-            self.origin_z.set_current_value(origin_z)
-            self.pixel_spacing_x(pixel_spacing_x)
-            self.pixel_spacing_y(pixel_spacing_y)
-            self.slice_thickness(slice_thickness)
+                        pitch:float = None, 
+                        yaw:float = None, 
+                        roll:float = None, 
+                        quaternion = None,
+                        norm:float = None, 
+                        origin_x:float = None,
+                        origin_y:float = None, 
+                        origin_z:float = None,
+                        pixel_spacing_x:float = None, 
+                        pixel_spacing_y:float = None, 
+                        slice_thickness:float = None,
+                        drawlayer_tags:list[str] = None):
+                        
+            with dpg.mutex():
+                if isinstance(quaternion, qtn.array):
+                    self.set_quaternion(quaternion = quaternion * self.quaternion.default_value)
 
+                else:
+                    self.set_pitch_yaw_roll(pitch = pitch, 
+                                            yaw = yaw,
+                                            roll = roll)
+                    self.set_quaternion()
+
+                self.set_geometry(pixel_spacing_x = pixel_spacing_x,
+                                  pixel_spacing_y = pixel_spacing_y,
+                                  slice_thickness = slice_thickness)
+                
+                self.set_geometry_vector()
+                self.set_norm(norm = norm)
+                # We apply scaling here because we should be getting the positions in mm space, not in texture space. 
+                self.set_origin(origin_x = origin_x,
+                                origin_y = origin_y,
+                                origin_z = origin_z)
+                self.set_origin_vector()
+
+                self.set_norm_vector()
+                self.set_view_plane()
+                
 
     def update_orientation(self, 
                            pitch:float = None, 
                            yaw:float = None, 
                            roll:float = None, 
                            norm:float = None, 
+                           quaternion = None,
                            origin_x:float = None,
                            origin_y:float = None, 
                            origin_z:float = None,
                            pixel_spacing_x:float = None, 
                            pixel_spacing_y:float = None, 
                            slice_thickness:float = None,
-                           drawlayer_tags:list[str] = None,
-                           apply_scaling:bool = True):
+                           drawlayer_tags:list[str] = None):
         with dpg.mutex():
             # Update geometry first, then apply to all other vectors.  
             # Reset View Plane Zoom. 
@@ -355,30 +371,29 @@ class OrientationInfo(object):
             self.view_plane_ortho.update_values(self.view_plane_ortho.current_value 
                                                 * self.geometry_vector.current_value)
             
-            self.update_pitch_yaw_roll(pitch = pitch, 
-                                       yaw = yaw,
-                                       roll = roll)
+            self.set_pitch_yaw_roll(pitch = pitch, 
+                                    yaw = yaw,
+                                    roll = roll)
+            
             self.update_quaternion()
-            self.update_geometry(pixel_spacing_x = pixel_spacing_x,
-                                 pixel_spacing_y = pixel_spacing_y,
-                                 slice_thickness = slice_thickness)
-            self.update_geometry_vector()
-            self.update_norm(norm = norm)
-            # We apply scaling here because we should be getting the positions in mm space, not in texture space. 
-            self.update_origin(origin_x = origin_x,
-                               origin_y = origin_y,
-                               origin_z = origin_z,
-                               pixel_spacing_x = self.geometry_vector.current_value.reshape((3, )).get()[1],
-                               pixel_spacing_y = self.geometry_vector.current_value.reshape((3, )).get()[0],
-                               pixel_spacing_z = self.geometry_vector.current_value.reshape((3, )).get()[2],
-                               apply_scaling = True)
+            self.set_geometry(pixel_spacing_x = pixel_spacing_x,
+                              pixel_spacing_y = pixel_spacing_y,
+                              slice_thickness = slice_thickness)
+            
+            self.set_geometry_vector()
+            self.set_norm(norm = norm)
+            # We apply scaling here because we should be getting the positions in mm space, 
+            # not in texture space. 
+            self.set_origin(origin_x = origin_x,
+                            origin_y = origin_y,
+                            origin_z = origin_z)
             
             # Update vectors and view plane
             self.update_norm_vector()
-            self.update_viewport_origin_vector(scale_vector = self.geometry_vector.get_quotient_value(),
-                                               apply_scaling = False)
-            self.update_origin_vector(scale_vector = self.geometry_vector.get_quotient_value(),
-                                      apply_scaling = False)
+            # self.update_viewport_origin_vector(scale_vector = self.geometry_vector.get_quotient_value(),
+            #                                    apply_scaling = False)
+            
+            self.set_origin_vector()
             self.update_view_plane()
 
             # Set Zoom Plane and origin values zoom.
@@ -387,13 +402,14 @@ class OrientationInfo(object):
             self.view_plane_ortho.update_values(self.view_plane_ortho.current_value 
                                                 / self.geometry_vector.current_value)
             
-            # We reset scaling here so that the origin_x, origin_y, and origin_z values reflect correct the OptionsPanel values. 
-            self.origin_x.set_current_value(self.origin_x.current_value 
-                                            / self.geometry_vector.current_value.reshape((3, )).get()[1])
-            self.origin_y.set_current_value(self.origin_y.current_value 
-                                            / self.geometry_vector.current_value.reshape((3, )).get()[0])
-            self.origin_z.set_current_value(self.origin_z.current_value 
-                                            / self.geometry_vector.current_value.reshape((3, )).get()[2])
+            # # We reset scaling here so that the origin_x, origin_y, and origin_z 
+            # values reflect correct the OptionsPanel values. 
+            # self.origin_x.set_current_value(self.origin_x.current_value 
+            #                                 / self.geometry_vector.current_value.reshape((3, )).get()[1])
+            # self.origin_y.set_current_value(self.origin_y.current_value 
+            #                                 / self.geometry_vector.current_value.reshape((3, )).get()[0])
+            # self.origin_z.set_current_value(self.origin_z.current_value 
+            #                                 / self.geometry_vector.current_value.reshape((3, )).get()[2])
 
             if drawlayer_tags == None:
                 drawlayer_tags = self.get_drawlayer_tags()
@@ -417,7 +433,10 @@ class OrientationInfo(object):
             self.origin_y.reset()
             self.origin_z.reset()
             self.viewport_origin_vector.reset()
+            self.view_plane.update_values(self.view_plane.current_value - self.scaled_origin_vector.current_value)
+            self.view_plane_ortho.update_values(self.view_plane_ortho.current_value - self.scaled_origin_vector.current_value)
             self.origin_vector.reset()
+            self.scaled_origin_vector.reset()
             self.norm_vector.reset()
 
 
@@ -426,10 +445,22 @@ class OrientationInfo(object):
             self.pitch.reset()
             self.yaw.reset()
             self.roll.reset()
+
             self.view_plane.update_values(qtn_rotate(self.quaternion.current_value.inverse,
-                                          self.view_plane.current_value, axis = 0), decimals = 4)
+                                                     self.view_plane.current_value - self.scaled_origin_vector.current_value, 
+                                                     axis = 0)
+                                                + self.scaled_origin_vector.current_value,
+                                                decimals = 4)
             self.view_plane_ortho.update_values(qtn_rotate(self.quaternion.current_value.inverse,
-                                          self.view_plane_ortho.current_value, axis = 0), decimals = 4)
+                                                           self.view_plane_ortho.current_value - self.scaled_origin_vector.current_value, 
+                                                           axis = 0)
+                                                        + self.scaled_origin_vector.current_value,
+                                                        decimals = 4)
+            self.norm_vector.update_values(qtn_rotate(self.quaternion.current_value.inverse,
+                                                      self.norm_vector.current_value,
+                                                      axis = 0),
+                                                    decimals=4)
+            
             self.quaternion.reset()
             self.global_quaternion.reset()
 
@@ -439,6 +470,8 @@ class OrientationInfo(object):
             self.pixel_spacing_x.reset()
             self.pixel_spacing_y.reset()
             self.slice_thickness.reset()
+            self.view_plane.update_values(self.view_plane.current_value * self.geometry_vector.current_value)
+            self.view_plane_ortho.update_values(self.view_plane_ortho.current_value * self.geometry_vector.current_value)
             self.geometry_vector.reset()
 
 
@@ -456,17 +489,19 @@ class OrientationInfo(object):
             self.origin_y.reset()
             self.origin_z.reset()
             self.quaternion.reset()
+            self.global_quaternion.reset()
             self.viewport_origin_vector.reset()
             self.origin_vector.reset()
+            self.scaled_origin_vector.reset()
             self.norm_vector.reset()
             self.view_plane.reset()
             self.view_plane_ortho.reset()
         
           
-    def update_pitch_yaw_roll(self, 
-                              pitch:float = None, 
-                              yaw:float = None,
-                              roll:float = None): #dpg.get_value(slider_tag)
+    def set_pitch_yaw_roll(self, 
+                           pitch:float = None, 
+                           yaw:float = None,
+                           roll:float = None): #dpg.get_value(slider_tag)
         
         """
         To maintain patient geometry on screen: 
@@ -492,6 +527,20 @@ class OrientationInfo(object):
         self.yaw.update_values(-1.0 * yaw) # We need to do this since we are setting our norm plane to be [0.0, 0.0, -1.0]
         self.roll.update_values(roll)
         
+    def set_quaternion(self, quaternion: qtn.QuaternionicArray):
+
+        if isinstance(quaternion, qtn.array):
+            self.quaternion.update_values(quaternion)
+            self.global_quaternion.update_values(quaternion)
+
+            return
+        
+        yaw_rtn = qtn.array.from_axis_angle([np.deg2rad(self.yaw.current_value), 0.0, 0.0])
+        pitch_rtn = qtn.array.from_axis_angle([0.0, np.deg2rad(self.pitch.current_value), 0.0])
+        roll_qtn = qtn.array.from_axis_angle([0.0, 0.0, np.deg2rad(self.roll.current_value)])
+        
+        self.global_quaternion.update_values(roll_qtn * pitch_rtn * yaw_rtn, decimals = 6)
+        self.quaternion.update_values(roll_qtn * pitch_rtn * yaw_rtn, decimals = 6)
         
     def update_quaternion(self):
         """
@@ -502,11 +551,16 @@ class OrientationInfo(object):
         roll    -> rotate about k_hat
 
         """
-        yaw_rtn = qtn.array.from_axis_angle([np.deg2rad(self.yaw.current_value), 0.0, 0.0])
-        pitch_rtn = qtn.array.from_axis_angle([0.0, np.deg2rad(self.pitch.current_value), 0.0])
-        roll_qtn = qtn.array.from_axis_angle([0.0, 0.0, np.deg2rad(self.roll.current_value)])
+
+        yaw_rtn = qtn.array.from_axis_angle([np.deg2rad(self.yaw.accumulated_value), 0.0, 0.0])
+        pitch_rtn = qtn.array.from_axis_angle([0.0, np.deg2rad(self.pitch.accumulated_value), 0.0])
+        roll_qtn = qtn.array.from_axis_angle([0.0, 0.0, np.deg2rad(self.roll.accumulated_value)])
+
+        # yaw_rtn = qtn.array.from_axis_angle([np.deg2rad(self.yaw.current_value), 0.0, 0.0])
+        # pitch_rtn = qtn.array.from_axis_angle([0.0, np.deg2rad(self.pitch.current_value), 0.0])
+        # roll_qtn = qtn.array.from_axis_angle([0.0, 0.0, np.deg2rad(self.roll.current_value)])
         
-        self.global_quaternion.update_values(yaw_rtn * pitch_rtn * roll_qtn, decimals = 6)
+        self.global_quaternion.update_values(roll_qtn * pitch_rtn * yaw_rtn * self.global_quaternion.default_value, decimals = 6)
 
         rotate_qtn = qtn.array([1.0, 0.0, 0.0, 0.0])
 
@@ -519,24 +573,23 @@ class OrientationInfo(object):
                 temp_qtn[angle_index + 1] = np.round(np.sin(angle_rad/2), decimals = 9)
                 rotate_qtn = temp_qtn * rotate_qtn
 
-        self.quaternion.update_values(rotate_qtn*self.quaternion.current_value, decimals = 6)
+        self.quaternion.update_values(rotate_qtn * self.quaternion.current_value, decimals = 6)
+
+        print('OptionValue Message: update_quaternion')
+        print(f'{self.global_quaternion.current_value * self.quaternion.current_value.inverse}')
 
         
-    def update_norm(self, 
+    def set_norm(self, 
                     norm:float = None):
         if norm == None:
             norm = dpg.get_value(G.OPTION_TAG_DICT['norm'])
         self.norm.update_values(norm)
         
         
-    def update_origin(self, 
-                      origin_x:float = None, 
-                      origin_y:float = None,
-                      origin_z:float = None,
-                      pixel_spacing_x:float = None,
-                      pixel_spacing_y:float = None,
-                      pixel_spacing_z:float = None,
-                      apply_scaling: bool = False):
+    def set_origin(self, 
+                   origin_x:float = None, 
+                   origin_y:float = None,
+                   origin_z:float = None):
         
         if origin_x == None:
             origin_x = dpg.get_value(G.OPTION_TAG_DICT['origin_x'])
@@ -545,28 +598,16 @@ class OrientationInfo(object):
         if origin_z == None: 
             origin_z = dpg.get_value(G.OPTION_TAG_DICT['origin_z'])
 
-        if pixel_spacing_x == None: 
-            pixel_spacing_x = dpg.get_value(G.OPTION_TAG_DICT['pixel_spacing_x'])
-        if pixel_spacing_y == None: 
-            pixel_spacing_y = dpg.get_value(G.OPTION_TAG_DICT['pixel_spacing_y'])
-        if pixel_spacing_z == None: 
-            pixel_spacing_z = dpg.get_value(G.OPTION_TAG_DICT['slice_thickness'])
-
-        if not apply_scaling:
-            pixel_spacing_x = 1.0
-            pixel_spacing_y = 1.0
-            pixel_spacing_z = 1.0
-
-        self.origin_x.update_values(origin_x*pixel_spacing_x) # Make these pix/mm. We choose our location using mm. 
-        self.origin_y.update_values(origin_y*pixel_spacing_y) # When we set origin_x = 50, we want to stay there. 
-        self.origin_z.update_values(origin_z*pixel_spacing_z) # However, this now makes the increments off by a 
-                                                              # the same factor. Pushing it moves it multiple pixels. 
+        self.origin_x.update_values(origin_x) # Make these pix/mm. We choose our location using mm. 
+        self.origin_y.update_values(origin_y) # When we set origin_x = 50, we want to stay there. 
+        self.origin_z.update_values(origin_z) # However, this now makes the increments off by a 
+                                              # the same factor. Pushing it moves it multiple pixels. 
         
 
-    def update_geometry(self, 
-                        pixel_spacing_x:float = None,
-                        pixel_spacing_y:float = None,
-                        slice_thickness:float = None):
+    def set_geometry(self, 
+                     pixel_spacing_x:float = None,
+                     pixel_spacing_y:float = None,
+                     slice_thickness:float = None):
         
         if pixel_spacing_x == None:
             pixel_spacing_x = dpg.get_value(self.pixel_spacing_x.tag)
@@ -580,7 +621,7 @@ class OrientationInfo(object):
         self.slice_thickness.update_values(slice_thickness, decimals = 4)
 
 
-    def update_geometry_vector(self) -> None:
+    def set_geometry_vector(self) -> None:
         self.geometry_vector.update_values(
                        cp.array([[self.pixel_spacing_y.current_value],
                                  [self.pixel_spacing_x.current_value], 
@@ -589,9 +630,7 @@ class OrientationInfo(object):
                                  decimals = 4)
 
 
-    def update_origin_vector(self, 
-                             scale_vector:np.ndarray = np.ones((3, 1)),
-                             apply_scaling:bool = False):
+    def set_origin_vector(self, apply_scaling = False):
         """
         
         Increments origin_vector by applying the appropriate rotations and translations: 
@@ -614,21 +653,33 @@ class OrientationInfo(object):
         Then we add that to the current origin vector. 
         """
 
-        if apply_scaling: 
-            self.origin_vector.update_values((self.origin_vector.current_value / scale_vector), 
-                                             decimals = 4)
-
+        
         self.origin_vector.update_values(
-                                cp.array([[-1.0*self.origin_y.current_value],
-                                          [self.origin_x.current_value],
-                                          [self.origin_z.current_value]],
-                                          dtype = cp.float32),
-                                decimals = 4
-                                )
+                            cp.array([[-1.0*self.origin_y.current_value],
+                                      [self.origin_x.current_value],
+                                      [self.origin_z.current_value]],
+                                      dtype = cp.float32),
+                                    decimals = 4
+                                    )
         
+        self.scaled_origin_vector.update_values(
+                            cp.array([[-1.0*self.origin_y.current_value * self.pixel_spacing_y.current_value],
+                                      [self.origin_x.current_value * self.pixel_spacing_x.current_value],
+                                      [self.origin_z.current_value * self.slice_thickness.current_value]],
+                                      dtype = cp.float32),
+                                    decimals = 4
+                                    )
         
-    def update_norm_vector(self):
 
+    def set_norm_vector(self):
+        self.norm_vector.update_values(
+            qtn_rotate(self.quaternion.current_value,
+                       self.norm_vector.current_value, 
+                       axis = 0), 
+                       decimals = 4)
+        
+
+    def update_norm_vector(self):
         self.norm_vector.update_values(
             qtn_rotate(self.quaternion.difference_value,
                        self.norm_vector.current_value, 
@@ -653,6 +704,44 @@ class OrientationInfo(object):
                 axis = 0), 
                 decimals = 4
             )
+
+    def set_view_plane(self):
+        if G.GPU_MODE:
+            print('OptionValue set_view_plane: Center of View Plane Init')
+            print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
+
+            self.view_plane.update_values(self.view_plane.default_value - self.origin_vector.current_value)
+            print('OptionValue set_view_plane: Center of View Plane Post Shift')
+            print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
+
+            self.view_plane.update_values(
+                qtn_rotate(self.quaternion.current_value,
+                           self.view_plane.current_value, axis = 0 )
+                           )
+            print('OptionValue set_view_plane: Center of View Plane Post Rotation')
+            print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
+
+            self.view_plane.update_values(self.view_plane.current_value + self.origin_vector.current_value + self.origin_vector.current_value)
+            print('OptionValue set_view_plane: Center of View Plane Post Reshift')
+            print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
+
+            self.view_plane.update_values(self.view_plane.current_value / self.geometry_vector.current_value)
+            print('OptionValue set_view_plane: Center of View Plane Post Scale')
+            print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
+            
+            
+            self.view_plane_ortho.update_values(
+                ((qtn_rotate(self.quaternion.current_value,
+                             self.view_plane_ortho.default_value
+                             - self.origin_vector.current_value, axis = 0)
+                        + self.origin_vector.current_value
+                        + self.origin_vector.current_value)
+                    / self.geometry_vector.current_value), 
+                        decimals = 4)
+            
+        else:
+            print('GPU required!')
+            return
     
     def update_view_plane(self):
         """
@@ -673,21 +762,19 @@ class OrientationInfo(object):
         """
         if G.GPU_MODE:
             self.view_plane.update_values(
-                qtn_rotate(self.quaternion.difference_value,
-                           self.view_plane.current_value
-                           - self.origin_vector.current_value, axis = 0)
-                        + self.origin_vector.current_value
-                        + self.origin_vector.difference_value
-                        + self.norm.difference_value*self.norm_vector.current_value, 
+                (qtn_rotate(self.quaternion.difference_value,
+                            self.view_plane.current_value
+                            - self.scaled_origin_vector.current_value, axis = 0)
+                        + self.scaled_origin_vector.current_value
+                        + self.scaled_origin_vector.difference_value), 
                         decimals = 4)
             
             self.view_plane_ortho.update_values(
-                qtn_rotate(self.quaternion.difference_value,
-                           self.view_plane_ortho.current_value
-                           - self.origin_vector.current_value, axis = 0)
-                        + self.origin_vector.current_value
-                        + self.origin_vector.difference_value
-                        + self.norm.difference_value*self.norm_vector.current_value, 
+                (qtn_rotate(self.quaternion.difference_value,
+                            self.view_plane_ortho.current_value
+                            - self.scaled_origin_vector.current_value, axis = 0)
+                        + self.scaled_origin_vector.current_value
+                        + self.scaled_origin_vector.difference_value), 
                         decimals = 4)
             
         else:
@@ -728,6 +815,9 @@ class OrientationInfo(object):
         print(f'{self.origin_vector.pretty_print(modifier = "current_value") = }')
         print(f'{self.origin_vector.pretty_print(modifier = "previous_value") = }')
         print(f'{self.origin_vector.pretty_print(modifier = "difference_value") = }')
+        print(f'{self.scaled_origin_vector.pretty_print(modifier = "current_value") = }')
+        print(f'{self.scaled_origin_vector.pretty_print(modifier = "previous_value") = }')
+        print(f'{self.scaled_origin_vector.pretty_print(modifier = "difference_value") = }')
         print(f'{self.viewport_origin_vector.pretty_print(modifier = "current_value") = }')
         print(f'{self.viewport_origin_vector.pretty_print(modifier = "previous_value") = }')
         print(f'{self.viewport_origin_vector.pretty_print(modifier = "difference_value") = }')
@@ -1120,6 +1210,7 @@ class OptionValue(object):
         self.previous_value:int|float = 1.0*default_value
         self.current_value:int|float = 1.0*default_value
         self.difference_value:int|float = self.current_value - self.previous_value 
+        self.accumulated_value:int|float = 0.0
         self.default_step:int|float = 1.0*default_step
         self.step_value:int|float = 1.0*default_step
         self.step_fast_value:int|float = 5.0*default_step
@@ -1135,6 +1226,12 @@ class OptionValue(object):
             return self.current_value.item()
         except:
             return self.current_value
+        
+    def set_accumulated_value(self, value = None):
+        if isinstance(value, type(None)):
+            self.accumulated_value += self.difference_value
+        else:
+            self.accumulated_value = 1.0 * value
      
     def set_difference_value(self):
         self.difference_value = self.current_value - self.previous_value + 0.0
@@ -1164,11 +1261,13 @@ class OptionValue(object):
         self.set_previous_value()
         self.set_current_value(new_current)
         self.set_difference_value()
+        self.set_accumulated_value()
         
     def reset(self):
         self.set_current_value(1.0*self.default_value)
         self.set_previous_value()
         self.set_difference_value()
+        self.set_accumulated_value(value = 0.0)
         self.set_limits(self.default_limits)
         self.set_step_values(self.default_step)
 
