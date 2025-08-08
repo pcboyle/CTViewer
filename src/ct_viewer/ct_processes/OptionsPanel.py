@@ -316,6 +316,8 @@ class OptionsPanel:
                 with dpg.group(horizontal = True):
                     dpg.add_text('Colormap  :')
                     dpg.add_combo(items = list(G.COLORMAP_DICT.keys()), 
+                                  user_data = G.COLORMAP_DICT,
+                                  source = 'colormap_combo_current_value',
                                   width = 225, 
                                   callback = self.update_volume, 
                                   default_value = 'Fire',

@@ -340,7 +340,7 @@ class G:
                        
                        'min_intensity': 'min_intensity_slider', 
                        'max_intensity': 'max_intensity_slider', 
-                       'colormap': 'colormap_combo'}
+                       'colormap_name': 'colormap_combo'}
     
     
     OPTIONS_DICT = {'img_index_slider': {}, 
@@ -517,6 +517,10 @@ class G:
                     case tuple():
                         dpg.add_color_value(**registry_kwargs)
 
+    def add_colormap_combo_to_value_registry(value_registry_tag):
+        dpg.add_string_value(tag = 'colormap_combo_current_value',
+                             default_value = 'Fire', 
+                             parent = value_registry_tag)
 
     def add_input_options_to_value_registry(value_registry_tag):
         # Set up slider value registry. This is used with the mouse wheel which can otherwise extend past the 
@@ -535,6 +539,7 @@ class G:
                 dpg.add_int_value(tag = f'{slider_tag}_current_value', 
                                   default_value = 1*slider_value, 
                                   parent = value_registry_tag)
+                
             elif option_type == 'float':
                 dpg.add_float_value(tag = f'{slider_tag}_current_value', 
                                     default_value = 1.0*slider_value, 

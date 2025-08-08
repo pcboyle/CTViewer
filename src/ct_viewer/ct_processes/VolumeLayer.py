@@ -59,15 +59,14 @@ class VolumeLayer(object):
         self.control_list: list[str] = ['origin_x', 'origin_y', 'origin_z', 'norm', 
                                         'pitch', 'yaw', 'roll', 
                                         'pixel_spacing_x', 'pixel_spacing_y', 'slice_thickness', 
-                                        'min_intensity', 'max_intensity', 'colormap']
+                                        'min_intensity', 'max_intensity', 'colormap_name']
         self.orientation_control_list: list[str] = ['origin_x', 'origin_y', 'origin_z', 'norm', 
                                                     'pitch', 'yaw', 'roll', 
                                                     'pixel_spacing_x', 'pixel_spacing_y', 'slice_thickness']
         
-        self.intensity_control_list: list[str] = ['min_intensity', 'max_intensity'] #, colormap]
+        self.intensity_control_list: list[str] = ['min_intensity', 'max_intensity', 'colormap_name']
         self.geometry_control_list: list[str] = ['pixel_spacing_x', 'pixel_spacing_y', 'slice_thickness']
         self.histogram_control_list: list[str] = ['min_value', 'max_value', 'step', 'scale']
-        self.texture_control_list: list[str] = ['zoom_level']
         self.orientation_control: str = G.DEFAULT_GROUP_LAYER_CONTROL
         self.intensity_control: str = G.DEFAULT_GROUP_LAYER_CONTROL
         self.geometry_control: str = 'Layer'
@@ -153,15 +152,6 @@ class VolumeLayer(object):
                                 self.Intensity,
                                 dpg.get_value('interpolation_combo_box'))
 
-        # self.interpolate_texture(self.Texture.texture_content, 
-        #                          self.get_orientation().view_plane.get_voxel_view(),
-        #                          dpg.get_value('interpolation_combo_box'))
-        
-        # self.window_and_normalize_texture()
-        # self.Texture.update_draw_image()
-        # self.assign_texture()
-        # self.Texture.create_static_texture()
-
     
     def initialize_texture(self, 
                            Texture:Textures.Texture,
@@ -174,7 +164,7 @@ class VolumeLayer(object):
                                  interpolation_method)
         Texture.window_and_normalize()
         Texture.update_draw_image()
-        Texture.assign_texture(Intensity.colormap)
+        Texture.assign_texture(Intensity.colormap.current_value)
         Texture.create_static_texture()
 
 
@@ -341,7 +331,7 @@ class VolumeLayer(object):
 
             # print(f'\tget_landmark_patches(): Updating Orientation')
             self.reset_orientation()
-            self.update_orientation(orientation_info, update_type = 'Set')
+            self.update_orientation(orientation_info, update_type = 'Update')
 
             # print(f'\tget_landmark_patches(): Updating Texture')
             self.update_texture(volume_operations, 
@@ -362,7 +352,8 @@ class VolumeLayer(object):
                                                   return_as_numpy = True,
                                                   colorize = True))
             patch_widths.append(patch_width)
-
+        
+        self.reset_orientation()
         return patches, patch_widths
     
 
@@ -511,18 +502,24 @@ class VolumeLayer(object):
             # We do this so we can keep track to the limits associated with 
             # each image parameter. 
             if changing_volumes:
-                dpg.configure_item(option_tag, 
-                                   min_value = control_option.limit_low, 
-                                   max_value = control_option.limit_high, 
-                                   default_value = control_option.default_value)
+                if control_option_name == 'colormap_name':
+                    dpg.configure_item(option_tag, 
+                                       default_value = control_option.default_value)
+                else:
+                    dpg.configure_item(option_tag, 
+                                       min_value = control_option.limit_low, 
+                                       max_value = control_option.limit_high, 
+                                       default_value = control_option.default_value)
                 
             print(f'{option_tag:<25}: {control_option_name}: {control_option.current_value}')
             dpg.set_value(f'{option_tag}_current_value', 
                           control_option.current_value)
-            dpg.set_value(f'{option_tag}_step_value',
-                          control_option.step_value)
-            dpg.set_value(f'{option_tag}_step_fast_value',
-                          control_option.step_fast_value)
+            
+            if control_option_name != 'colormap_name':
+                dpg.set_value(f'{option_tag}_step_value',
+                            control_option.step_value)
+                dpg.set_value(f'{option_tag}_step_fast_value',
+                            control_option.step_fast_value)
 
 
     def get_attribute(self, attribute_name: str):
@@ -792,10 +789,7 @@ class VolumeLayer(object):
 
 
     def assign_texture(self):
-        if self.intensity_control == 'Group':
-            self.Texture.assign_texture(self.Group.Intensity.colormap)
-        else:
-            self.Texture.assign_texture(self.Intensity.colormap)
+        self.Texture.assign_texture(self.get_intensity().colormap.current_value)
 
 
     def interpolate_texture(self, 
@@ -1147,11 +1141,11 @@ class VolumeLayerGroup(object):
         self.control_list: list[str] = ['origin_x', 'origin_y', 'origin_z', 'norm', 
                                         'pitch', 'yaw', 'roll', 
                                         'pixel_spacing_x', 'pixel_spacing_y', 'slice_thickness', 
-                                        'min_intensity', 'max_intensity', 'colormap']
+                                        'min_intensity', 'max_intensity', 'colormap_name']
         self.orientation_control_list: list[str] = ['origin_x', 'origin_y', 'origin_z', 'norm', 
                                                     'pitch', 'yaw', 'roll', 
                                                     'pixel_spacing_x', 'pixel_spacing_y', 'slice_thickness']
-        self.intensity_control_list:list[str] = ['min_intensity', 'max_intensity', 'colormap']
+        self.intensity_control_list:list[str] = ['min_intensity', 'max_intensity', 'colormap_name']
         self.histogram_control_list:list[str] = ['min_value', 'max_value', 'step', 'scale']
         self.current_volume: VolumeLayer = None
         self.volume_reference_dict: dict = {}
@@ -1569,7 +1563,6 @@ class VolumeLayerGroups(object):
 
     def set_control_options(self, 
                             changing_volumes: bool = False) -> None:
-        # self.set_options_panel()
         self.get_current_volume().set_control_options('Orientation', changing_volumes = changing_volumes)
         self.get_current_volume().set_control_options('Intensity', changing_volumes = changing_volumes)
 
@@ -1581,14 +1574,12 @@ class VolumeLayerGroups(object):
         self.set_current_volume_by_index(0, img_index)
 
         self.set_control_options(changing_volumes = True)
-        # self.get_current_volume().set_control_options('Orientation', changing_volumes = True)
-        # self.get_current_volume().set_control_options('Intensity', changing_volumes = True)
         self.get_current_volume().show_landmarks()
 
         dpg.set_item_label(f'orientation_group_layer_control_button', self.get_current_volume().orientation_control)
         dpg.set_item_label(f'intensity_group_layer_control_button', self.get_current_volume().intensity_control)
-        dpg.set_value('colormap_combo', self.get_current_volume().colormap_name.current_value)
-        dpg.set_value('reverse_colormap_checkbox', self.get_current_volume().colormap_reversed)
+        dpg.set_value('colormap_combo_current_value', self.get_current_volume().get_intensity().colormap_name.current_value)
+        dpg.set_value('reverse_colormap_checkbox', self.get_current_volume().get_intensity().colormap_reversed)
         dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {self.get_current_volume().name}')
 
 

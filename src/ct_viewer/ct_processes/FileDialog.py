@@ -1142,9 +1142,18 @@ class FileDialog(object):
             
         return f_info_dict
     
+
+    def check_read_access(self, path: Path):
+
+        read_access = os.access(path, os.R_OK)
+        if not read_access:
+            print(f'File Dialog Message: Cannot read {path}', flush = True)
+
+        return read_access
+    
     
     def parse_files_in_path(self, path: Path, is_windows_drive_parent: bool = False):
-        
+
         if is_windows_drive_parent:
             for drive_letter in self.drive_letters:
                 drive_path = Path(drive_letter)
@@ -1155,6 +1164,8 @@ class FileDialog(object):
         else:
             for file in path.glob('*'):
                 print(f'FileDialog Message: FILE_PARSER: {file.name}', flush = True)
+                if not self.check_read_access(file):
+                    continue
                 file_id = FileDialog.get_file_id(file)
                 self.current_directory_file_dict[f'{file_id}'] = self.get_file_info(file, format_file_info = True, exclude = ['Size'])
                 match self.current_directory_file_dict[f'{file_id}']['Suffix']:

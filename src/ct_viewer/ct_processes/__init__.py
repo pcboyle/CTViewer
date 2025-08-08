@@ -51,6 +51,7 @@ class CTViewer:
         G.add_input_options_to_value_registry(self.value_registry)
         G.add_configuration_to_value_registry(self.value_registry)
         G.add_texture_center_to_value_registry(self.value_registry)
+        G.add_colormap_combo_to_value_registry(self.value_registry)
         
         # Load up interpolators.
         CTVolume._initialize_interps()

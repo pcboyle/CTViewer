@@ -24,15 +24,17 @@ class IntensityInfo(object):
                                           'max_intensity': {'tag': G.OPTION_TAG_DICT['max_intensity'],
                                                             'default_value': 1200.0, 
                                                             'default_limits': [-1e6 + 1, 1e6]},
-                                          'colormap': G.DEFAULT_IMAGE_SETTINGS['colormap'],
+                                          'colormap': G.COLORMAP_DICT['Fire'],
                                           'colormap_reversed': False,
-                                          'colormap_name': G.DEFAULT_IMAGE_SETTINGS['colormap_combo'],
+                                          'colormap_name': 'Fire',
                                           'colormap_scale_type': 'Linear',
-                                          'colormap_scale_tag': 'COLORMAP_SCALE_NOT_INITIALIZED'}):
+                                          'colormap_scale_tag': 'colormap_scale_combo'}):
+        
         self.tag: StringValue = StringValue(default_string=tag)
         self.min_intensity: OptionValue = OptionValue(**default_colormap_info['min_intensity'])
         self.max_intensity: OptionValue = OptionValue(**default_colormap_info['max_intensity'])
-        self.colormap: list[interp1d] = default_colormap_info['colormap']
+        # self.colormap: list[interp1d] = default_colormap_info['colormap']
+        self.colormap: ColormapValue = ColormapValue(default_colormap = default_colormap_info['colormap'])
         self.colormap_name: StringValue = StringValue(default_string = default_colormap_info['colormap_name']) # eg, Fire
         self.colormap_reversed: bool = default_colormap_info['colormap_reversed']
         self.colormap_log: bool = False
@@ -43,6 +45,21 @@ class IntensityInfo(object):
 
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
+
+
+    def get_info(self) -> dict:
+
+        return {'tag': self.tag,
+                'min_intensity': self.min_intensity,
+                'max_intensity': self.max_intensity,
+                'colormap': self.colormap,
+                'colormap_name':self.colormap_name,
+                'colormap_reversed': self.colormap_reversed,
+                'colormap_log': self.colormap_log,
+                'colormap_scale_type': self.colormap_scale_type,
+                'colormap_scale_tag': self.colormap_scale_tag,
+                'colormap_rescaled': self.colormap_rescaled,
+                'window_size': self.window_size}
 
 
     def update_window(self, 
@@ -100,6 +117,7 @@ class IntensityInfo(object):
             setattr(self, 'colormap', G.COLORMAP_DICT[colormap_name]['colormap'])
 
         dpg.configure_item(self.colormap_scale_tag, colormap = f'colormap_{self.get_colormap_string()}')
+    
     
     def copy_intensity(self, intensity_info: "IntensityInfo"):
         # print('IntensityInfo Message: Before Copying')
@@ -472,6 +490,8 @@ class OrientationInfo(object):
             self.slice_thickness.reset()
             self.view_plane.update_values(self.view_plane.current_value * self.geometry_vector.current_value)
             self.view_plane_ortho.update_values(self.view_plane_ortho.current_value * self.geometry_vector.current_value)
+
+            self.scaled_origin_vector.update_values(self.origin_vector.current_value)
             self.geometry_vector.reset()
 
 
@@ -710,7 +730,7 @@ class OrientationInfo(object):
             print('OptionValue set_view_plane: Center of View Plane Init')
             print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
 
-            self.view_plane.update_values(self.view_plane.default_value - self.origin_vector.current_value)
+            self.view_plane.update_values(self.view_plane.default_value - self.scaled_origin_vector.current_value)
             print('OptionValue set_view_plane: Center of View Plane Post Shift')
             print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
 
@@ -721,7 +741,7 @@ class OrientationInfo(object):
             print('OptionValue set_view_plane: Center of View Plane Post Rotation')
             print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
 
-            self.view_plane.update_values(self.view_plane.current_value + self.origin_vector.current_value + self.origin_vector.current_value)
+            self.view_plane.update_values(self.view_plane.current_value + self.scaled_origin_vector.current_value + self.scaled_origin_vector.current_value)
             print('OptionValue set_view_plane: Center of View Plane Post Reshift')
             print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
 
@@ -975,6 +995,41 @@ class StringValue(object):
             delattr(self, attrib_key)
 
 
+class ColormapValue(object):
+    def __init__(self, 
+                 tag:str = 'colormap_combo',
+                 default_colormap: list[interp1d] = G.COLORMAP_DICT['Fire']):
+        self.tag = tag
+        self.default_value: list[interp1d] = default_colormap
+        self.current_value: list[interp1d] = default_colormap
+        self.difference_value: list[interp1d] = default_colormap
+        self.previous_value: list[interp1d] = default_colormap
+
+    def __call__(self):
+        return self.current_value
+    
+    def set_previous_value(self):
+        self.previous_value = self.current_value
+
+    def set_current_value(self, new_current: list[interp1d]):
+        self.current_value = new_current
+
+    def update_values(self, new_current: list[interp1d]):
+        self.set_previous_value()
+        self.set_current_value(new_current)
+
+    def reset(self):
+        self.set_current_value(self.default_value)
+        self.set_previous_value()
+
+    def _cleanup_(self):
+        attrib_list = list(self.__dict__.keys())
+        while len(attrib_list) > 0:
+            attrib_key = attrib_list.pop()
+            setattr(self, attrib_key, None)
+            delattr(self, attrib_key)
+
+
 class ArrayValue(object):
     def __init__(self, 
                  tag:str = '', 
@@ -1115,6 +1170,7 @@ class VectorValue(object):
         self.current_value: np.ndarray|cp.ndarray = 1.0*default_vector
         self.previous_value: np.ndarray|cp.ndarray = 1.0*default_vector
         self.difference_value: np.ndarray|cp.ndarray = self.current_value - self.previous_value
+        self.accumulated_value: np.ndarray|cp.ndarray = 0.0*default_vector
         self.step_value: np.ndarray|cp.ndarray = 1.0*default_steps
 
 
@@ -1159,6 +1215,12 @@ class VectorValue(object):
         
     def set_previous_value(self):
         self.previous_value = 1.0*self.current_value
+
+    def set_accumulated_value(self, value = None):
+        if isinstance(value, type(None)):
+            self.accumulated_value += self.difference_value
+        else:
+            self.accumulated_value = 1.0 * value
     
     def set_current_value(self, 
                           new_current:np.ndarray|cp.ndarray):
@@ -1172,6 +1234,7 @@ class VectorValue(object):
         self.set_previous_value()
         self.set_current_value(new_current)
         self.set_difference_value()
+        self.set_accumulated_value()
 
     def rotate(self, quaternion: qtn.QuaternionicArray = qtn.array([1, 0, 0, 0])):
         self.update_values(quaternion.rotate(self.current_value, axis = 0))
@@ -1180,6 +1243,7 @@ class VectorValue(object):
         self.set_current_value(1.0*self.default_value)
         self.set_previous_value()
         self.set_difference_value()
+        self.set_accumulated_value(0.0 * self.default_value)
 
     def set_info(self, info_dict: dict):
         self.__dict__ = dict(info_dict)
