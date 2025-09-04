@@ -142,7 +142,7 @@ class MenuBar:
         print('MenuBar Message: Closing All Volumes')
         print(f'MenuBar Message: {self.VolumeLayerGroups.active = }')
         if self.VolumeLayerGroups.active:
-            dpg.set_value('InfoBoxTab_layers_text', '')
+            # dpg.set_value('InfoBoxTab_layers_text', '')
             
             self.InformationBox.close_image()
             self.OptionsPanel.close_image()

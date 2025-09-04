@@ -272,7 +272,7 @@ class CTVolume(object):
             [3, xdim, ydim, zdim]
 
         """
-
+        
         if type(out_array) == type(None):
             return ndi.map_coordinates(self.volume, coords, order = order, cval=cp.nan)
         

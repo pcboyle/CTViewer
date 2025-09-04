@@ -698,7 +698,7 @@ class VolumeLayer(object):
 
         order_dict = {'Nearest Neighbor': 0,
                       'Linear': 1}
-
+        
         if operation_instance.enabled: 
             operation_instance.perform_operation(
                 operation_instance.operation, 
@@ -709,6 +709,9 @@ class VolumeLayer(object):
                 stop = operation_instance.stop,
                 order = order_dict[dpg.get_value('interpolation_combo_box')])
             self.Texture.set_texture_value(operation_instance.texture_content)
+            self.interpolate_texture(self.TextureOrtho.texture_content, 
+                                     self.get_orientation().view_plane_ortho.get_voxel_view(),
+                                     dpg.get_value('interpolation_combo_box'))
 
         else:
             self.interpolate_texture(self.Texture.texture_content, 
@@ -718,8 +721,7 @@ class VolumeLayer(object):
             self.interpolate_texture(self.TextureOrtho.texture_content, 
                                      self.get_orientation().view_plane_ortho.get_voxel_view(),
                                      dpg.get_value('interpolation_combo_box'))
-            
-        
+
         self.Texture.update_texture(colormap = colormap,
                                     colormap_scale_type = colormap_scale_type,
                                     colormap_scale_tag = colormap_scale_tag,
@@ -822,7 +824,7 @@ class VolumeLayer(object):
 
     def remove_texture_from_drawlist(self):
         self.Texture.delete_drawn_texture()
-
+        self.TextureOrtho.delete_drawn_texture()
 
     def add_textures_to_drawlists(self,
                                   drawlists):

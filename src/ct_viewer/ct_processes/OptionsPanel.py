@@ -127,8 +127,7 @@ class OptionsPanel:
 
         self.tag_list.append(dpg.last_item())
         self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
-
-        pass
+        
 
     def create_options_panel(self, 
                              tag = 'OptionsPanelWindow', 
@@ -486,19 +485,27 @@ class OptionsPanel:
                 dpg.add_text('(0, 0, 0, 0)', 
                              tag = 'OptionPanel_quaternion_display',
                              user_data = qtn.array([1.0, 0.0, 0.0, 0.0]))
+                
             with dpg.group(horizontal=True):
                 dpg.add_text('G Quaternion ')
                 dpg.add_text('(0, 0, 0, 0)', 
                              tag = 'OptionPanel_global_quaternion_display',
                              user_data = qtn.array([1.0, 0.0, 0.0, 0.0]))
+                
             with dpg.group(horizontal=True):
                 dpg.add_text('Origin       ')
                 dpg.add_text('(0, 0, 0)', 
                              tag = 'OptionPanel_origin_vector_display')
+                
             with dpg.group(horizontal=True):
                 dpg.add_text('Norm         ')
                 dpg.add_text('(0, 0, 0)', 
                              tag = 'OptionPanel_norm_vector_display')
+                
+            with dpg.group(horizontal=True):
+                dpg.add_text('Volume Basis ')
+                dpg.add_text(f'(1.000, 0.000, 0.000)\n(0.000, 1.000, 0.000)\n(0.000, 0.000, 1.000)',
+                             tag = 'OptionPanel_volume_basis_display')
 
         self.disable_options()
 

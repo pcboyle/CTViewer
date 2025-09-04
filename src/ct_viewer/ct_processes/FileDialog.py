@@ -353,7 +353,7 @@ class FileDialog(object):
                         pttv.Next()
 
                     if f'{seriesUID}' not in dcm_dir_contents:
-                        dcm_dir_contents[f'{seriesUID}'] = {'files': [], 
+                        dcm_dir_contents[f'{seriesUID}'] = {'dicom_files': [], 
                                                             'dir': file_path,
                                                             'shape': [cols, rows, 0], 
                                                             'dtype': f'int{bit_depth}',
@@ -361,11 +361,17 @@ class FileDialog(object):
                                                             'slice_location': np.zeros(n_files),
                                                             'direction_cosines': np.zeros(6),
                                                             'affine': np.eye(4,4)}
-
-                    dcm_dir_contents[seriesUID]['files'].append(file)
+                    
+                    dcm_dir_contents[seriesUID]['dicom_files'].append(file)
                     dcm_dir_contents[seriesUID]['shape'][2] += 1
                     dcm_dir_contents[seriesUID]['im_pos'][:] = im_pos_array[:] # X, Y, Z
                     dcm_dir_contents[seriesUID]['slice_location'][:] = slice_locations[:]
+                
+                # We want the indices to go from large to small. 
+                sorted_indices = np.argsort(dcm_dir_contents[seriesUID]['slice_location'])[::-1] 
+                dcm_dir_contents[seriesUID]['slice_location'][:] = dcm_dir_contents[seriesUID]['slice_location'][sorted_indices]
+                dcm_dir_contents[seriesUID]['dicom_files'] = np.array(dcm_dir_contents[seriesUID]['dicom_files'])[sorted_indices].tolist()
+                dcm_dir_contents[seriesUID]['im_pos'][:] = dcm_dir_contents[seriesUID]['im_pos'][sorted_indices]
 
                 dcm_dir_contents[seriesUID]['direction_cosines'][:] = dir_cos[:]
                 dcm_dir_contents[seriesUID]['affine'][:3,0] = dir_cos[:3]*pix_spacing[1] # Delta Col
@@ -1368,12 +1374,14 @@ class FileParser(object):
             series_affine = directory_info_object['Dicom Dir'][seriesUID]['affine'][:]
             series_im_pos = directory_info_object['Dicom Dir'][seriesUID]['im_pos'][:]
             series_dir = directory_info_object['Dicom Dir'][seriesUID]['dir']
+            series_dicom_files = directory_info_object['Dicom Dir'][seriesUID]['dicom_files']
             print(f'FileParser Message: Parsing {seriesUID}\n\t\t\t\tShape:{series_shape}.\n\t\t\t\tData Type:{series_dtype}')
             file_content_dict['Data'][seriesUID] = {'Name': seriesUID, 'Type': 'Dataset', 'Attributes': {'shape': series_shape, 
                                                                                                          'dtype': series_dtype, 
                                                                                                          'affine': series_affine,
                                                                                                          'im_pos': series_im_pos,
-                                                                                                         'dir': series_dir}}
+                                                                                                         'dir': series_dir,
+                                                                                                         'dicom_files': series_dicom_files}}
 
 
     def parse_nifti_file(self, file_info_object, file_content_dict):
@@ -1415,64 +1423,55 @@ class DataLoader(object):
             self.create_loading_window()
         
 
-
     def finalize_load_volumes(self, 
                               VolumeLayerGroups: VolumeLayer.VolumeLayerGroups,
                               DrawWindow: NewMainView.MainView,
                               OptionsPanel: OptionsPanel.OptionsPanel,
                               InformationBox: InformationBox.InformationBox):
         
+        with dpg.mutex():
+            if VolumeLayerGroups.get_group_by_index(0).n_volumes > 0:
+                if not VolumeLayerGroups.active:
+                    VolumeLayerGroups.set_current_volume_by_index(0, 0)
+                    VolumeLayerGroups.get_current_volume().add_textures_to_drawlists(VolumeLayerGroups.texture_drawlayer_tags)
+                    # VolumeLayerGroups.get_current_volume().add_texture_to_drawlist(drawlist=DrawWindow.return_texture_drawlayer_tag(window_tag))
+                    VolumeLayerGroups.get_current_volume().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
+                    VolumeLayerGroups.get_current_group().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
+                    # VolumeLayerGroups.get_current_group().set_drawlayer_tags(DrawWindow.get_texture_drawlist_tags())
 
-        if VolumeLayerGroups.get_group_by_index(0).n_volumes > 0:
-            if not VolumeLayerGroups.active:
-                VolumeLayerGroups.set_current_volume_by_index(0, 0)
-                VolumeLayerGroups.get_current_volume().add_textures_to_drawlists(VolumeLayerGroups.texture_drawlayer_tags)
-                # VolumeLayerGroups.get_current_volume().add_texture_to_drawlist(drawlist=DrawWindow.return_texture_drawlayer_tag(window_tag))
-                VolumeLayerGroups.get_current_volume().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
-                VolumeLayerGroups.get_current_group().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
-                # VolumeLayerGroups.get_current_group().set_drawlayer_tags(DrawWindow.get_texture_drawlist_tags())
+                    InformationBox.load_image(VolumeLayerGroups)
 
-                InformationBox.load_image(VolumeLayerGroups)
+                    VolumeLayerGroups.set_active()
 
-                VolumeLayerGroups.set_active()
-
-        G.N_VOLUMES = len(VolumeLayerGroups.get_current_group().volume_names)
-        G.OPTIONS_DICT['img_index_slider']['max_value'] = VolumeLayerGroups.get_current_group().n_volumes
-        dpg.set_item_user_data(G.OPTIONS_DICT['img_index_slider']['slider_tag'],
-                               VolumeLayerGroups.current_group_and_volume)
-        
-        dpg.configure_item(G.OPTIONS_DICT['img_index_slider']['slider_tag'], 
-                            max_value = VolumeLayerGroups.get_group_by_name('AllVolumes').n_volumes)
-        
-        G.APP.ImageTools.update_selector_lists(VolumeLayerGroups.get_current_group().volume_names)
-        G.APP.ImageTools.enable_options()
-
-        InformationBox.initialize_landmark_tables(VolumeLayerGroups.get_current_group().volume_names)
-        
-        OptionsPanel.enable_options()
-        dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {VolumeLayerGroups.get_current_volume().name}')
-        
-        OptionsPanel.update_volume('FileDialog', None, None)
-        # VolumeLayerGroups.get_current_group().set_landmark_draw_layer_tag(DrawWindow.return_landmark_drawlayer_tag(window_tag))
-        VolumeLayerGroups.update_histogram('volume')
-        VolumeLayerGroups.update_histogram('texture')
-
-        affine = VolumeLayerGroups.get_volume_by_index(0, 0).CTVolume.affine
-        layers_tab_text = f'{VolumeLayerGroups.get_volume_by_index(0, 0).name}'
-
-        for row in affine:
-            layers_tab_text = f'{layers_tab_text}\n\t{row}'
-
-        for vol_index in range(1, VolumeLayerGroups.get_group_by_index(0).n_volumes):
-            affine = VolumeLayerGroups.get_volume_by_index(0, vol_index).CTVolume.affine
-            vol_name = VolumeLayerGroups.get_volume_by_index(0, vol_index).name
-            layers_tab_text = f'{layers_tab_text}\n{vol_name}'
+            G.N_VOLUMES = len(VolumeLayerGroups.get_current_group().volume_names)
+            G.OPTIONS_DICT['img_index_slider']['max_value'] = VolumeLayerGroups.get_current_group().n_volumes
+            dpg.set_item_user_data(G.OPTIONS_DICT['img_index_slider']['slider_tag'],
+                                VolumeLayerGroups.current_group_and_volume)
             
-            for row in affine:
-                layers_tab_text = f'{layers_tab_text}\n\t{row}'
+            dpg.configure_item(G.OPTIONS_DICT['img_index_slider']['slider_tag'], 
+                                max_value = VolumeLayerGroups.get_group_by_name('AllVolumes').n_volumes)
+            
+            G.APP.ImageTools.update_selector_lists(VolumeLayerGroups.get_current_group().volume_names)
+            G.APP.ImageTools.enable_options()
 
-        dpg.set_value('InfoBoxTab_layers_text', layers_tab_text)
-        self.hide_loading_window()
+            InformationBox.initialize_tables(VolumeLayerGroups.get_current_group().volume_names)
+            
+            OptionsPanel.enable_options()
+            dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {VolumeLayerGroups.get_current_volume().name}')
+            
+            OptionsPanel.update_volume('FileDialog', None, None)
+            # VolumeLayerGroups.get_current_group().set_landmark_draw_layer_tag(DrawWindow.return_landmark_drawlayer_tag(window_tag))
+            VolumeLayerGroups.update_histogram('volume')
+            VolumeLayerGroups.update_histogram('texture')
+
+            for vol_index in range(0, VolumeLayerGroups.get_group_by_index(0).n_volumes):
+                affine = VolumeLayerGroups.get_volume_by_index(0, vol_index).CTVolume.affine
+                vol_name = VolumeLayerGroups.get_volume_by_index(0, vol_index).name
+                InformationBox.add_layer(vol_name, 
+                                        affine)
+
+            # dpg.set_value('InfoBoxTab_layers_text', layers_tab_text)
+            self.hide_loading_window()
 
     def show_loading_window(self):
         dpg.show_item(G.LOADING_WINDOW_TAG)
@@ -1567,7 +1566,7 @@ class DataLoader(object):
             print(f'DataLoader Message: DICOM Load: {file_name}|{volume_name}')
             file_path = files_to_be_loaded_dict[file_id]['Attributes']['file_path']
             affine = files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes']['affine']
-
+            dicom_files = files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes']['dicom_files']
             print(f'DataLoader Message: File {file_name} Affine:\n\t{affine}')
             if len(files_to_be_loaded_dict[file_id]['volumes']) == 1:
                 display_name = f'{file_name}'
@@ -1576,7 +1575,7 @@ class DataLoader(object):
 
             return CTVolume.CTVolume(display_name, 
                                      file_path,
-                                     self.read_dicom_pixel_dir(file_path),
+                                     self.read_dicom_pixel_dir(file_path, dicom_files = dicom_files),
                                      affine = affine,
                                      dim_order = (0, 1, 2))
         
@@ -1671,8 +1670,9 @@ class DataLoader(object):
     def process_dicom_file(self, index, d_file, out_volume):
         self.read_dicom_pixel_data(d_file, out_array=out_volume[:, :, index])
 
-    def read_dicom_pixel_dir(self, dicom_dir:Path, out_array = None):
-        dicom_files = sorted(list(dicom_dir.glob('*.dcm')))
+    def read_dicom_pixel_dir(self, dicom_dir:Path, dicom_files = None, out_array = None):
+        if type(dicom_files) == type(None):
+            dicom_files = sorted(list(dicom_dir.glob('*.dcm')))
         tags = [gdcm.Tag(0x7fe0,0x0010),    # Pixel Data
                 gdcm.Tag(0x0028,0x0010),    # Rows
                 gdcm.Tag(0x0028,0x0011),    # Columns

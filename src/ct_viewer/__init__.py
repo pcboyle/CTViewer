@@ -1,4 +1,4 @@
-__version__ = "0.3.3.1.6.9"
+__version__ = "0.3.3.1.7.0"
 
 # TODO:
 #       Zoom Feature                        --  Done. 

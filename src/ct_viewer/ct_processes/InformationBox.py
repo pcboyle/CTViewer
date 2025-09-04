@@ -34,14 +34,14 @@ class InformationBox(object):
                               width = G.CONFIG_DICT['app_settings']['info_box_width'], # G.INFORMATION_BOX_WINDOW_DEFAULTS['WINDOW_WIDTH'], 
                               height = G.CONFIG_DICT['app_settings']['info_box_height']): #G.INFORMATION_BOX_WINDOW_DEFAULTS['WINDOW_HEIGHT']):
             with dpg.tab_bar(tag = 'InfoBox_TabBar'):
-                dpg.add_tab(label = 'Landmarks', tag = 'landmark_tab')
+                dpg.add_tab(label = 'Landmarks', tag = 'InfoBoxTab_landmarks')
 
                 with dpg.tab(label = 'Group Tab', tag = 'InfoBoxTab_groups'):
                     dpg.add_text(self.group_text, 
                                  tag = 'group_tab_text')
-
-                with dpg.tab(label = 'Layer Tab', tag = 'InfoBoxTab_layers'):
-                    dpg.add_text('', tag = 'InfoBoxTab_layers_text')
+                
+                dpg.add_tab(label = 'Layer Tab', tag = 'InfoBoxTab_layers')
+                    # dpg.add_text('', tag = 'InfoBoxTab_layers_text')
 
                 with dpg.tab(label = 'Histograms', tag = 'InfoBoxTab_volume_histograms'):
                     with dpg.group(tag = 'InfoBox_histogram_volume'):
@@ -226,6 +226,52 @@ class InformationBox(object):
     def update_layer_tab(self):
         pass
 
+
+    def initialize_tables(self, volume_names):
+        with dpg.mutex():
+            for volume_name in volume_names:
+                if volume_name not in self.landmark_volumes:
+                    self.landmark_volumes.append(volume_name)
+
+                    self.initialize_landmark_table(volume_name)
+                    self.initialize_layers_table(volume_name)
+
+    def initialize_layers_table(self, volume_name):
+        print(f'InformationBox Message: Adding Layers Table: {volume_name}_layers_table')
+        with dpg.tree_node(label = volume_name, 
+                        tag = f'{volume_name}_layers_node', 
+                        parent = 'InfoBoxTab_layers'):
+            self.items.append(f'{volume_name}_layers_node')
+            with dpg.table(header_row = False, 
+                        tag = f'{volume_name}_layers_table',
+                        height = 150,
+                        clipper = True,
+                        scrollY = True):
+                self.items.append(f'{volume_name}_layers_table')
+                dpg.add_table_column(width_stretch=True, init_width_or_weight = 0.15)
+                dpg.add_table_column(width_stretch=True, init_width_or_weight = 0.85)
+
+            dpg.show_item(f'{volume_name}_layers_table')
+
+    def initialize_landmark_table(self, volume_name):
+        print(f'InformationBox Message: Adding Landmark Table: {volume_name}_landmarks_table')
+        with dpg.tree_node(label = volume_name, 
+                        tag = f'{volume_name}_landmarks_node', 
+                        parent = 'InfoBoxTab_landmarks'):
+            self.items.append(f'{volume_name}_landmarks_node')
+            with dpg.table(header_row = True, 
+                        tag = f'{volume_name}_landmarks_table',
+                        height = 250,
+                        clipper = True,
+                        scrollY = True):
+                self.items.append(f'{volume_name}_landmarks_table')
+                dpg.add_table_column(label = ' ', width = 10, width_fixed = True)
+                dpg.add_table_column(label = f'{"X":^7}') # X
+                dpg.add_table_column(label = f'{"Y":^7}') # Y
+                dpg.add_table_column(label = f'{"Z":^7}') # Z
+                dpg.add_table_column(label = f'{"I":^7}') # I
+
+            dpg.show_item(f'{volume_name}_landmarks_table')
         
     def initialize_landmark_tables(self, volume_names):
         with dpg.mutex():
@@ -237,7 +283,7 @@ class InformationBox(object):
 
                     with dpg.tree_node(label = volume_name, 
                                     tag = f'{volume_name}_landmarks_node', 
-                                    parent = 'landmark_tab'):
+                                    parent = 'InfoBoxTab_landmarks'):
                         self.items.append(f'{volume_name}_landmarks_node')
                         with dpg.table(header_row = True, 
                                     tag = f'{volume_name}_landmarks_table',
@@ -252,6 +298,31 @@ class InformationBox(object):
                             dpg.add_table_column(label = f'{"I":^7}') # I
 
                         dpg.show_item(f'{volume_name}_landmarks_table')
+
+    def add_layer(self, 
+                  volume_name: str, 
+                  affine: np.ndarray):
+        layers_tab_text = f''
+
+        for vector, text_end in zip(affine, ['\n', '\n', '\n', '']):
+            values = np.round(vector, decimals = 4).tolist()
+            text = f'[{values[0]:>7.4f}, {values[1]:>7.4f}, {values[2]:>7.4f}, {values[3]:>10.4f}]'
+            layers_tab_text = f'{layers_tab_text}{text}{text_end}'
+        
+        with dpg.table_row(parent=f'{volume_name}_layers_table', 
+                           tag = f'{volume_name}_layers_row'):
+            
+            self.items.append(f'{volume_name}_layers_row')
+            dpg.add_selectable(label = 'Affine\n \n \n ', 
+                                span_columns=True,
+                                tag = f'{volume_name}_layers_affine_row_label')
+            self.items.append(f'{volume_name}_layers_affine_row_label')
+
+            dpg.add_selectable(label = layers_tab_text, 
+                                span_columns=True,
+                                tag = f'{volume_name}_layers_affine_row_info')
+            self.items.append(f'{volume_name}_layers_affine_row_info')
+
 
     def add_landmark(self, 
                      volume_name, 

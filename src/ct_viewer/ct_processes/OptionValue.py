@@ -239,6 +239,16 @@ class CameraInfo(object):
         
         pass
 
+class AffineMatrix(object):
+    def __init__(self, 
+                 default_origin: list[float] = [0.0, 0.0, 0.0],
+                 default_angle: list[float] = [0.0, 0.0, 0.0],
+                 default_scale: list[float] = [1.0, 1.0, 1.0]):
+        
+        self.affine_matrix = np.eye(4, 4, dtype=np.float32)
+        self.affine_matrix[:,3] = np.array(default_origin)
+        self.affine_matrix[[0, 1, 2], [0, 1, 2]] *= np.array(default_scale)
+
 class OrientationInfo(object):
     def __init__(self, 
                  tag = 'Orientation',
@@ -366,7 +376,7 @@ class OrientationInfo(object):
 
                 self.set_norm_vector()
                 self.set_view_plane()
-                
+
 
     def update_orientation(self, 
                            pitch:float = None, 
@@ -408,8 +418,7 @@ class OrientationInfo(object):
             
             # Update vectors and view plane
             self.update_norm_vector()
-            # self.update_viewport_origin_vector(scale_vector = self.geometry_vector.get_quotient_value(),
-            #                                    apply_scaling = False)
+            # self.update_viewport_origin_vector()
             
             self.set_origin_vector()
             self.update_view_plane()
@@ -433,10 +442,19 @@ class OrientationInfo(object):
                 drawlayer_tags = self.get_drawlayer_tags()
             self.update_drawlayers(drawlayer_tags)
 
-            self.volume_basis = self.quaternion.current_value.rotate(np.eye(3, dtype=np.float32), axis = 0)
-
+            self.volume_basis = np.round(self.quaternion.difference_value.rotate(self.volume_basis, axis = 0) , decimals = 6) + 0.0
+            vol_basis_text = ''
             print(f'update_orientation')
-            print(f'\tVolume Basis: {self.volume_basis}')
+            print(f'\tVolume Basis:')
+            index = 0
+            for vector in self.volume_basis:
+                values = (np.round(vector, decimals = 3) + 0.0).tolist()
+                text = f'({values[0]:.3f}, {values[1]:.3f}, {values[2]:.3f})'
+                vol_basis_text = f'{vol_basis_text}{text}'
+                if index < 2:
+                    vol_basis_text = f'{vol_basis_text}\n'
+                index += 1
+            dpg.set_value('OptionPanel_volume_basis_display', vol_basis_text)
 
     def update_drawlayers(self, 
                           drawlayer_tags: list[str]):
@@ -478,6 +496,8 @@ class OrientationInfo(object):
                                                       self.norm_vector.current_value,
                                                       axis = 0),
                                                     decimals=4)
+            
+            self.volume_basis = np.round(self.quaternion.current_value.inverse.rotate(self.volume_basis, axis = 0), decimals = 3) + 0.0
             
             self.quaternion.reset()
             self.global_quaternion.reset()
@@ -559,8 +579,8 @@ class OrientationInfo(object):
         pitch_rtn = qtn.array.from_axis_angle([0.0, np.deg2rad(self.pitch.current_value), 0.0])
         roll_qtn = qtn.array.from_axis_angle([0.0, 0.0, np.deg2rad(self.roll.current_value)])
         
-        self.global_quaternion.update_values(roll_qtn * pitch_rtn * yaw_rtn, decimals = 6)
-        self.quaternion.update_values(roll_qtn * pitch_rtn * yaw_rtn, decimals = 6)
+        self.global_quaternion.update_values(roll_qtn * pitch_rtn * yaw_rtn)
+        self.quaternion.update_values(roll_qtn * pitch_rtn * yaw_rtn)
         
     def update_quaternion(self):
         """
@@ -575,15 +595,9 @@ class OrientationInfo(object):
         yaw_rtn = qtn.array.from_axis_angle([np.deg2rad(self.yaw.accumulated_value), 0.0, 0.0])
         pitch_rtn = qtn.array.from_axis_angle([0.0, np.deg2rad(self.pitch.accumulated_value), 0.0])
         roll_qtn = qtn.array.from_axis_angle([0.0, 0.0, np.deg2rad(self.roll.accumulated_value)])
-
-        # yaw_rtn = qtn.array.from_axis_angle([np.deg2rad(self.yaw.current_value), 0.0, 0.0])
-        # pitch_rtn = qtn.array.from_axis_angle([0.0, np.deg2rad(self.pitch.current_value), 0.0])
-        # roll_qtn = qtn.array.from_axis_angle([0.0, 0.0, np.deg2rad(self.roll.current_value)])
         
-        self.global_quaternion.update_values(roll_qtn * pitch_rtn * yaw_rtn * self.global_quaternion.default_value, decimals = 6)
-
+        self.global_quaternion.update_values(roll_qtn * pitch_rtn * yaw_rtn * self.global_quaternion.default_value)
         rotate_qtn = qtn.array([1.0, 0.0, 0.0, 0.0])
-
         for angle_index, angle_tag in enumerate(['yaw', 'pitch', 'roll']):
             angle: QuaternionValue = getattr(self, angle_tag)
             temp_qtn = qtn.array([1.0, 0.0, 0.0, 0.0])
@@ -591,14 +605,14 @@ class OrientationInfo(object):
                 angle_rad = np.deg2rad(angle.difference_value)
                 temp_qtn[0] = np.round(np.cos(angle_rad/2), decimals = 9)
                 temp_qtn[angle_index + 1] = np.round(np.sin(angle_rad/2), decimals = 9)
-                rotate_qtn = temp_qtn * rotate_qtn
-
-        self.quaternion.update_values(rotate_qtn * self.quaternion.current_value, decimals = 6)
+                rotate_qtn = temp_qtn * rotate_qtn 
+            
+        self.quaternion.update_values(rotate_qtn * self.quaternion.current_value)
 
         print('OptionValue Message: update_quaternion')
         print(f'{self.global_quaternion.current_value * self.quaternion.current_value.inverse}')
 
-        
+
     def set_norm(self, 
                     norm:float = None):
         if norm == None:
@@ -672,7 +686,6 @@ class OrientationInfo(object):
         Then we rotate that by the current quaternion.
         Then we add that to the current origin vector. 
         """
-
         
         self.origin_vector.update_values(
                             cp.array([[-1.0*self.origin_y.current_value],
@@ -696,7 +709,7 @@ class OrientationInfo(object):
             qtn_rotate(self.quaternion.current_value,
                        self.norm_vector.current_value, 
                        axis = 0), 
-                       decimals = 4)
+                       decimals = 6)
         
 
     def update_norm_vector(self):
@@ -704,16 +717,12 @@ class OrientationInfo(object):
             qtn_rotate(self.quaternion.difference_value,
                        self.norm_vector.current_value, 
                        axis = 0), 
-                       decimals = 4)
+                       decimals = 6)
 
 
     def update_viewport_origin_vector(self,
                                       scale_vector:np.ndarray|cp.ndarray = np.ones((3, 1)),
                                       apply_scaling:bool = False):
-        
-        if apply_scaling:
-            self.viewport_origin_vector.update_values(self.viewport_origin_vector.current_value / scale_vector,
-                                                      decimals = 4)
 
         self.viewport_origin_vector.update_values(
             self.viewport_origin_vector.current_value + 
@@ -722,7 +731,7 @@ class OrientationInfo(object):
                               [1.0*self.origin_x.difference_value], 
                               [0]]),
                 axis = 0), 
-                decimals = 4
+                decimals = 6
             )
 
     def set_view_plane(self):
@@ -782,20 +791,34 @@ class OrientationInfo(object):
         """
         if G.GPU_MODE:
             self.view_plane.update_values(
-                (qtn_rotate(self.quaternion.difference_value,
-                            self.view_plane.current_value
-                            - self.scaled_origin_vector.current_value, axis = 0)
-                        + self.scaled_origin_vector.current_value
-                        + self.scaled_origin_vector.difference_value), 
+                            qtn_rotate(self.quaternion.difference_value, 
+                                       self.view_plane.current_value, 
+                                       axis = 0)
+                            + self.scaled_origin_vector.difference_value, 
                         decimals = 4)
             
             self.view_plane_ortho.update_values(
-                (qtn_rotate(self.quaternion.difference_value,
-                            self.view_plane_ortho.current_value
-                            - self.scaled_origin_vector.current_value, axis = 0)
-                        + self.scaled_origin_vector.current_value
-                        + self.scaled_origin_vector.difference_value), 
+                            qtn_rotate(self.quaternion.difference_value, 
+                                       self.view_plane_ortho.current_value, 
+                                       axis = 0)
+                            + self.scaled_origin_vector.difference_value, 
                         decimals = 4)
+            
+            # self.view_plane.update_values(
+            #     (qtn_rotate(self.quaternion.difference_value,
+            #                 self.view_plane.current_value
+            #                 - self.scaled_origin_vector.current_value, axis = 0)
+            #             + self.scaled_origin_vector.current_value
+            #             + self.scaled_origin_vector.difference_value), 
+            #             decimals = 4)
+            
+            # self.view_plane_ortho.update_values(
+            #     (qtn_rotate(self.quaternion.difference_value,
+            #                 self.view_plane_ortho.current_value
+            #                 - self.scaled_origin_vector.current_value, axis = 0)
+            #             + self.scaled_origin_vector.current_value
+            #             + self.scaled_origin_vector.difference_value), 
+            #             decimals = 4)
             
         else:
             print('GPU required!')

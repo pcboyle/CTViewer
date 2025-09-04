@@ -18,18 +18,31 @@ except:
     from __init__ import __version__
 
 
-_FRAMERATE_ = 1/80
+_MAXFRAMERATE_ = 1/80
+
+def get_frame_rate(s_time,
+                   frame_increment):
+    frame_datetime = datetime.datetime.now()
+    frame_delta:datetime.timedelta = (frame_datetime - s_time)
+    frames_per_second = round(frame_increment / (frame_delta.seconds + frame_delta.microseconds / 1e6))
+    if frames_per_second > 500:
+        frames_per_second = 0
+    return frames_per_second
 
 def get_gpu_memory(mempool_bytes, 
                    f_count, 
-                   f_space):
+                   f_space,
+                   f_rate):
+    
     frame_datetime = datetime.datetime.now()
     hour = f"{frame_datetime.hour}".zfill(2)
     minute = f"{frame_datetime.minute}".zfill(2)
     second = f"{frame_datetime.second}".zfill(2)
-    frame_time_string = f'{hour}-{minute}-{second}: '
+    microsecond = f"{frame_datetime.microsecond}".zfill(6)
+    frame_time_string = f'{hour}:{minute}:{second}.{microsecond}    '
     mempool_used_bytes = round(float(mempool_bytes)/1e6, ndigits=3)
     gpu_string = f'{frame_time_string}FRAME: {f_count:>10}'
+    gpu_string = f'{gpu_string}{f_space}FPS: {f_rate:>3d}'
     gpu_string = f'{gpu_string}{f_space}MemPool Bytes       : {mempool_used_bytes:>10}\n'
     return gpu_string
 
@@ -112,7 +125,8 @@ def main():
     hour = f'{app_datetime.hour}'.zfill(2)
     minute = f'{app_datetime.minute}'.zfill(2)
     second = f'{app_datetime.second}'.zfill(2)
-    app_datetime_string = f'{day}{month}{year}-{hour}{minute}{second}'
+    microsecond = f'{app_datetime.microsecond}'.zfill(6)
+    app_datetime_string = f'{day}{month}{year}-{hour}{minute}{second}.{microsecond}'
 
     gpu_log_path:Path = Path(G.LOG_DIR).joinpath(f'GPU_{app_datetime_string}.LOG')
     gpu_log_path.touch()
@@ -156,7 +170,7 @@ def main():
                         height = G.CONFIG_DICT['app_settings']['app_height'], 
                         x_pos = 0, 
                         y_pos = 0,
-                        vsync = True)
+                        vsync = False)
     
     dpg.setup_dearpygui()
     dpg.show_viewport()
@@ -188,30 +202,32 @@ def main():
         return 0
     
     else:
-        # try:
-        #     dpg.start_dearpygui()
         frame_count:int = 0
         frame_space = " "*10
+        start_time = datetime.datetime.now()
+        frame_rate = 0
         with open(gpu_log_path, mode = 'a') as gpu_log:
             try:
                 while dpg.is_dearpygui_running():
-                    time.sleep(_FRAMERATE_)
+                    time.sleep(_MAXFRAMERATE_)
                     if frame_count%60 == 0:
-                        print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count, frame_space), 
+                        frame_rate = get_frame_rate(start_time, 60)
+                        print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count, frame_space, frame_rate), 
                               file = gpu_log, 
                               flush = True, 
                               end = '')
-                    dpg.render_dearpygui_frame()
-                    frame_count += 1
-                    # print(f'APP MESSAGE: FRAME COUNT: {frame_count:>10}')
+                        start_time = datetime.datetime.now()
                     
+                    dpg.render_dearpygui_frame()
+                    
+                    frame_count += 1
 
             except:
                 with Exception as e:
                     print(f'{e}')
             
             finally:
-                print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count, frame_space), 
+                print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count, frame_space, frame_rate), 
                               file = gpu_log, 
                               flush = True, 
                               end = '')
@@ -220,7 +236,7 @@ def main():
                 dpg.destroy_context()
                 cp.get_default_memory_pool().free_all_blocks()
                 cp.get_default_pinned_memory_pool().free_all_blocks()
-                print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count + 1, frame_space), 
+                print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count + 1, frame_space, frame_rate), 
                               file = gpu_log, 
                               flush = True, 
                               end = '')
