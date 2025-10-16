@@ -45,7 +45,7 @@ class VolumeOperations(object):
         self.stop = stop
         self.operation = operation
         self.weighted = weighted
-    
+        
     def format_interpolation_slab(self,
                                   norm_vector: np.ndarray | cp.ndarray, # (3, 1)
                                   volume_view_plane: np.ndarray | cp.ndarray, # (3, N) Points

@@ -299,10 +299,11 @@ class FileDialog(object):
             dcm_files = sorted(list(file_path.glob('*.dcm')))
             n_files = len(dcm_files)
             dcm_dir_contents = None
-            # print(f'FileDialog Message: {file_path}\n\t{n_files}')
             is_dicom_dir = False
+            is_dicom_image_dir = False
             if n_files > 0:
                 is_dicom_dir = True
+                is_dicom_image_dir = False
                 dcm_dir_contents = {}
                 print(f'FileDialog Message:\tDetect Dicom Dir {file_path.name}: {n_files}')
                 gdcm_dir = gdcm.Directory()
@@ -328,6 +329,8 @@ class FileDialog(object):
                         tag:str = pttv.GetCurrentTag()
                         value:str = pttv.GetCurrentValue()
                         match tag.PrintAsContinuousString():
+                            case "00080060":
+                                modality = f'{value.strip()}'
                             case "0020000e":
                                 seriesUID = f'{value.strip()}'
                             case "00280100":
@@ -354,35 +357,43 @@ class FileDialog(object):
 
                     if f'{seriesUID}' not in dcm_dir_contents:
                         dcm_dir_contents[f'{seriesUID}'] = {'dicom_files': [], 
-                                                            'dir': file_path,
-                                                            'shape': [cols, rows, 0], 
-                                                            'dtype': f'int{bit_depth}',
-                                                            'im_pos': np.zeros((n_files, 3)),
-                                                            'slice_location': np.zeros(n_files),
-                                                            'direction_cosines': np.zeros(6),
-                                                            'affine': np.eye(4,4)}
+                                                            'modalities': [],
+                                                            'dir': file_path}
+                        
+                        if modality in DICOM_Tags.IMAGE_TAGS:
+                            is_dicom_image_dir = True
+                            dcm_dir_contents[f'{seriesUID}'].update({'shape': [cols, rows, 0], 
+                                                                     'dtype': f'int{bit_depth}',
+                                                                     'im_pos': np.zeros((n_files, 3)),
+                                                                     'slice_location': np.zeros(n_files),
+                                                                     'direction_cosines': np.zeros(6),
+                                                                     'affine': np.eye(4,4)})
                     
                     dcm_dir_contents[seriesUID]['dicom_files'].append(file)
-                    dcm_dir_contents[seriesUID]['shape'][2] += 1
-                    dcm_dir_contents[seriesUID]['im_pos'][:] = im_pos_array[:] # X, Y, Z
-                    dcm_dir_contents[seriesUID]['slice_location'][:] = slice_locations[:]
-                
-                # We want the indices to go from large to small. 
-                sorted_indices = np.argsort(dcm_dir_contents[seriesUID]['slice_location'])[::-1] 
-                dcm_dir_contents[seriesUID]['slice_location'][:] = dcm_dir_contents[seriesUID]['slice_location'][sorted_indices]
-                dcm_dir_contents[seriesUID]['dicom_files'] = np.array(dcm_dir_contents[seriesUID]['dicom_files'])[sorted_indices].tolist()
-                dcm_dir_contents[seriesUID]['im_pos'][:] = dcm_dir_contents[seriesUID]['im_pos'][sorted_indices]
+                    dcm_dir_contents[seriesUID]['modalities'].append(modality)
+                    if is_dicom_image_dir:
+                        dcm_dir_contents[seriesUID]['shape'][2] += 1
+                        dcm_dir_contents[seriesUID]['im_pos'][:] = im_pos_array[:] # X, Y, Z
+                        dcm_dir_contents[seriesUID]['slice_location'][:] = slice_locations[:]
 
-                dcm_dir_contents[seriesUID]['direction_cosines'][:] = dir_cos[:]
-                dcm_dir_contents[seriesUID]['affine'][:3,0] = dir_cos[:3]*pix_spacing[1] # Delta Col
-                dcm_dir_contents[seriesUID]['affine'][:3,1] = dir_cos[3:]*pix_spacing[0] # Delta Row
-                dcm_dir_contents[seriesUID]['affine'][:3,2] = dcm_dir_contents[seriesUID]['im_pos'][1] - dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0 # Slice Thickness
-                dcm_dir_contents[seriesUID]['affine'][:3,3] = dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0
+                if is_dicom_image_dir:
+                    # We want the indices to go from large to small. 
+                    sorted_indices = np.argsort(dcm_dir_contents[seriesUID]['slice_location'])[::-1] 
+                    dcm_dir_contents[seriesUID]['slice_location'][:] = dcm_dir_contents[seriesUID]['slice_location'][sorted_indices]
+                    dcm_dir_contents[seriesUID]['dicom_files'] = np.array(dcm_dir_contents[seriesUID]['dicom_files'])[sorted_indices].tolist()
+                    dcm_dir_contents[seriesUID]['modalities'] = [dcm_dir_contents[seriesUID]['modalities'][i] for i in sorted_indices]
+                    dcm_dir_contents[seriesUID]['im_pos'][:] = dcm_dir_contents[seriesUID]['im_pos'][sorted_indices]
+
+                    dcm_dir_contents[seriesUID]['direction_cosines'][:] = dir_cos[:]
+                    dcm_dir_contents[seriesUID]['affine'][:3,0] = dir_cos[:3]*pix_spacing[1] # Delta Col
+                    dcm_dir_contents[seriesUID]['affine'][:3,1] = dir_cos[3:]*pix_spacing[0] # Delta Row
+                    dcm_dir_contents[seriesUID]['affine'][:3,2] = dcm_dir_contents[seriesUID]['im_pos'][1] - dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0 # Slice Thickness
+                    dcm_dir_contents[seriesUID]['affine'][:3,3] = dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0
 
                 del gdcm_dir
                 del scanner
             
-            if is_dicom_dir:
+            if is_dicom_image_dir:
                 print(f'FileDialog Message: Dicom file {file_path.name} Affine:')
                 for affine_element in dcm_dir_contents[seriesUID]['affine']:
                     print(f'\t{affine_element}')
@@ -484,7 +495,7 @@ class FileDialog(object):
         self.debug = debug
         self.VolumeLayerGroups: VolumeLayer.VolumeLayerGroups = None
         self.InformationBox: InformationBox.InformationBox = None
-        self.drawlist_tag = '',
+        self.drawlayer_tag = '',
         self.current_directory_file_dict = {}
         self.selected_files_dict = {}
         self.file_extension_dict = {"All Files (*)": [[''], []],
@@ -1433,11 +1444,11 @@ class DataLoader(object):
             if VolumeLayerGroups.get_group_by_index(0).n_volumes > 0:
                 if not VolumeLayerGroups.active:
                     VolumeLayerGroups.set_current_volume_by_index(0, 0)
-                    VolumeLayerGroups.get_current_volume().add_textures_to_drawlists(VolumeLayerGroups.texture_drawlayer_tags)
-                    # VolumeLayerGroups.get_current_volume().add_texture_to_drawlist(drawlist=DrawWindow.return_texture_drawlayer_tag(window_tag))
+                    VolumeLayerGroups.get_current_volume().add_textures_to_drawlayers(VolumeLayerGroups.texture_drawlayer_tags)
+                    # VolumeLayerGroups.get_current_volume().add_textures_to_drawlayers(drawlayer=DrawWindow.return_texture_drawlayer_tag(window_tag))
                     VolumeLayerGroups.get_current_volume().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
                     VolumeLayerGroups.get_current_group().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
-                    # VolumeLayerGroups.get_current_group().set_drawlayer_tags(DrawWindow.get_texture_drawlist_tags())
+                    # VolumeLayerGroups.get_current_group().set_drawlayer_tags(DrawWindow.get_texture_drawlayer_tags())
 
                     InformationBox.load_image(VolumeLayerGroups)
 
@@ -1601,7 +1612,6 @@ class DataLoader(object):
             return CTVolume.CTVolume(display_name, 
                                      files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
                                      np.array(nib_file.get_fdata(), dtype = np.float32),
-                                     
                                      affine = nib_file.affine,
                                      dim_order = (0, 1, 2))
                                      # dim_order = (2, 1, 0))

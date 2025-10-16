@@ -40,6 +40,7 @@ class Landmarks(object):
         self.landmark_quaternions = np.zeros((self.max_landmarks, 4), dtype = np.float32)
         self.landmark_norms = np.zeros((self.max_landmarks, 3), dtype = np.float32)
         self.landmark_geometries = np.zeros((self.max_landmarks, 3), dtype = np.float32)
+        self.landmark_affines = np.zeros((self.max_landmarks, 4, 4, 4), dtype = np.float32) # (affine, rotation, scaling, translation)
         self.landmark_sizes = np.zeros(self.max_landmarks, dtype = np.float32)
         self.landmark_rgba = np.zeros((self.max_landmarks, 4), dtype = np.float32) #(r, g, b, a)
         self.landmark_patches = {}
@@ -63,6 +64,7 @@ class Landmarks(object):
                      color = dpg.get_value('landmark_color_picker'),
                      size:float = 5.0, 
                      geometry: np.ndarray = np.ones(3, dtype = np.float32),
+                     affine: np.ndarray = np.array([np.eye(4, dtype = np.float32)]*4),
                      landmark_patch: np.ndarray = np.zeros((11, 11), dtype = np.float32), 
                      patch_size: int = 11,
                      show_landmark = True):
@@ -120,6 +122,7 @@ class Landmarks(object):
         self.landmark_norms[self.landmark_index] = Landmarks.cp_to_np(viewplane_norm)[:]
         self.landmark_sizes[self.landmark_index] = 1.0*size
         self.landmark_geometries[self.landmark_index] = 1.0*geometry
+        self.landmark_affines[self.landmark_index] = 1.0*affine
         self.landmark_rgba[self.landmark_index] = np.array(color)[:]
         self.landmark_show[self.landmark_index] = int(show_landmark)
 
@@ -287,15 +290,27 @@ class Landmarks(object):
 
     def get_last_landmark(self) -> list:
         if self.landmark_index > 0:
-
+            
             landmark_info_list = [self.volume_name, 
                                   self.landmark_index - 1, 
-                                  self.landmark_image_coords[self.landmark_index - 1, :].round(3), 
-                                  self.landmark_geometries[self.landmark_index - 1, :],
-                                  self.landmark_quaternions[self.landmark_index - 1, :],
+                                  self.landmark_affines[self.landmark_index - 1], 
+                                  self.landmark_image_coords[self.landmark_index - 1, 3],
+                                #   self.landmark_affines[self.landmark_index - 1, :3, 3],
+                                #   self.landmark_geometries[self.landmark_index - 1, :],
+                                #   self.landmark_quaternions[self.landmark_index - 1, :],
                                   self.landmark_last_tag,
                                   self.get_patch_tag(self.landmark_last_tag),
                                   self.landmark_patches[self.get_patch_tag(self.landmark_last_tag)]]
+        
+            # landmark_info_list = [self.volume_name, 
+            #                       self.landmark_index - 1, 
+            #                       self.landmark_image_coords[self.landmark_index - 1, :].round(3), 
+            #                       self.landmark_geometries[self.landmark_index - 1, :],
+            #                       self.landmark_affines[self.landmark_index - 1, :],
+            #                       self.landmark_quaternions[self.landmark_index - 1, :],
+            #                       self.landmark_last_tag,
+            #                       self.get_patch_tag(self.landmark_last_tag),
+            #                       self.landmark_patches[self.get_patch_tag(self.landmark_last_tag)]]
 
             # print('Landmark Message: get_last_landmark')
             # print(f'\tVolume Name       : {landmark_info_list[0]}')
@@ -360,21 +375,30 @@ class Landmarks(object):
         data = data_dict['data'] #vx, vy, vz, hu, nz, ny, nz, qa, qb, qc, qd, px, py, pz
 
         loaded_data = {'image_coords': np.zeros((len(data), 4), dtype = np.float32),
-                       'voxel_coords': np.zeros((len(data), 3), dtype = np.float32),
+                       'voxel_coords': np.zeros((len(data), 4), dtype = np.float32),
                        'drawing_coords': np.zeros((len(data), 3), dtype = np.float32),
                        'norms': np.zeros((len(data), 3), dtype = np.float32),
                        'quaternions': np.zeros((len(data), 4), dtype = np.float32),
-                       'geometries': np.zeros((len(data), 3), dtype = np.float32)}
+                       'geometries': np.zeros((len(data), 3), dtype = np.float32),
+                       'affines': np.zeros((len(data), 4, 4, 4), dtype = np.float32)}
 
-        loaded_data['voxel_coords'] = data[:, :4]
-        loaded_data['norms'] = data[:, 4:7]
-        loaded_data['quaternions'] = data[:, 7:11]
-        loaded_data['geometries'] = data[:, 11:]
+        loaded_data['voxel_coords'][:] = data[:, :4].astype(np.float32)
+        loaded_data['norms'][:] = data[:, 4:7].astype(np.float32)
+        loaded_data['quaternions'][:] = data[:, 7:11].astype(np.float32)
+        loaded_data['geometries'][:] = data[:, 11:].astype(np.float32)
 
         loaded_data['image_coords'][:,1] = 1.0 * loaded_data['voxel_coords'][:,0] + 0.0
         loaded_data['image_coords'][:,0] = -1.0 * loaded_data['voxel_coords'][:,1] + 0.0
         loaded_data['image_coords'][:,2] = 1.0 * loaded_data['voxel_coords'][:,2] + 0.0
         loaded_data['image_coords'][:,3] = 1.0 * loaded_data['voxel_coords'][:,3] + 0.0
+
+        loaded_data['affines'][:, :, 3, 3] = 1.0
+        loaded_data['affines'][:, 1, :3, :3] = qtn.array(loaded_data['quaternions']).to_rotation_matrix
+        loaded_data['affines'][:, 2, 0, 0] = 1.0 / loaded_data['geometries'][:, 0]
+        loaded_data['affines'][:, 2, 1, 1] = 1.0 / loaded_data['geometries'][:, 1]
+        loaded_data['affines'][:, 2, 2, 2] = 1.0 / loaded_data['geometries'][:, 2]
+        loaded_data['affines'][:, 3, :3, 3] = loaded_data['image_coords'][:, :3]
+        loaded_data['affines'][:, 0] = loaded_data['affines'][:, 3] @ loaded_data['affines'][:, 2] @ loaded_data['affines'][:, 1]
 
         loaded_data['drawing_coords'][:] = self.get_landmark_drawing_coords(loaded_data['image_coords'], 
                                                                             current_origin,
@@ -510,6 +534,7 @@ class Landmarks(object):
         self.landmark_rgba[landmark_index] *= 0.0
         self.landmark_show[landmark_index] *= 0
         self.landmark_geometries[self.landmark_index] *= 0.0
+        self.landmark_affines[self.landmark_index] *= 0.0
 
         if dpg.does_item_exist(landmark_id):
             dpg.delete_item(landmark_id)

@@ -38,11 +38,15 @@ class MainView:
         
         return window_dict
     
-    def get_landmark_drawlist_tags(self, window_tags:list[str] = [None]) -> list[str]:
+    def get_landmark_drawlayer_tags(self, window_tags:list[str] = [None]) -> list[str]:
         return [self.window_dict[tag]['TextureDrawLandmarks'] for tag in self.get_window_tags()]
     
     def get_texture_drawlist_tags(self, window_tags:list[str] = [None]) -> list[str]:
         return [self.window_dict[tag]['TextureDrawList'] for tag in self.get_window_tags()]
+    
+    def get_texture_drawlayer_tags(self, window_tags:list[str] = [None]) -> list[str]:
+        return [self.window_dict[tag]['TextureDrawLayer'] for tag in self.get_window_tags()]
+
 
     # I am writing these in this way so we can have multiple draw windows at some point. 
     # These should really be classes of their own. 

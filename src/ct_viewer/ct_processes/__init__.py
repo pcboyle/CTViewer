@@ -101,11 +101,11 @@ class CTViewer:
                 self.InformationBox = InformationBox.InformationBox(self.VolumeLayerGroups)
 
         self.VolumeLayerGroups.set_draw_window_dict(self.DrawWindow.window_dict)
-        self.VolumeLayerGroups.set_texture_drawlayer_tags(self.DrawWindow.get_texture_drawlist_tags())
-        self.VolumeLayerGroups.set_landmark_drawlayer_tags(self.DrawWindow.get_landmark_drawlist_tags())
+        self.VolumeLayerGroups.set_texture_drawlayer_tags(self.DrawWindow.get_texture_drawlayer_tags())
+        self.VolumeLayerGroups.set_landmark_drawlayer_tags(self.DrawWindow.get_landmark_drawlayer_tags())
         self.VolumeLayerGroups.get_current_group().set_draw_window_dict(self.DrawWindow.window_dict)
-        self.VolumeLayerGroups.get_current_group().set_texture_drawlayer_tags(self.DrawWindow.get_texture_drawlist_tags())
-        self.VolumeLayerGroups.get_current_group().set_landmark_drawlayer_tags(self.DrawWindow.get_landmark_drawlist_tags())
+        self.VolumeLayerGroups.get_current_group().set_texture_drawlayer_tags(self.DrawWindow.get_texture_drawlayer_tags())
+        self.VolumeLayerGroups.get_current_group().set_landmark_drawlayer_tags(self.DrawWindow.get_landmark_drawlayer_tags())
 
         self.ImageTools.set_options_panel(self.OptionsPanel)
         self.OptionsPanel.set_volume_and_draw_objects(self.VolumeLayerGroups,

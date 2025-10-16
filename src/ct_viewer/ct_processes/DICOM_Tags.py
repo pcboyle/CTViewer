@@ -45,6 +45,7 @@ TAGS = ['PatientID',
         # 'PixelData'] # PixelData is obtained in numpy form via pixel_array
 
 KEYWORDS_TO_TAGS = {'PatientID': '0010,0020',
+                    'Modality': '0008,0060',
                     'StudyDate': '0008,0020',
                     'SeriesDate': '0008,0021',
                     'SOPClassUID': '0008,0016',
@@ -90,6 +91,7 @@ KEYWORDS_TO_TAGS = {'PatientID': '0010,0020',
                     'RescaleType': '0028,1054'}
 
 TAGS_TO_KEYWORDS = {'0010,0020': 'PatientID',
+                    '0008,0060': 'Modality',
                     '0008,0020': 'StudyDate',
                     '0008,0021': 'SeriesDate',
                     '0008,0016': 'SOPClassUID',
@@ -133,6 +135,10 @@ TAGS_TO_KEYWORDS = {'0010,0020': 'PatientID',
                     '0028,1052': 'RescaleIntercept',
                     '0028,1053': 'RescaleSlope',
                     '0028,1054': 'RescaleType'}
+
+IMAGE_TAGS = ['CT',
+              'MR',
+              'PT']
 
 STUDY_TAGS = ['PatientID', 
               'StudyDate', 

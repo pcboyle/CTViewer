@@ -23,6 +23,11 @@ class ImageTools:
         self.VolumeLayerGroups:VolumeLayer.VolumeLayerGroups = VolumeLayerGroups
         self.options_panel = None
         self.landmark_radius = 1*float(G.CONFIG_DICT['landmark_settings']['circle_radius'])
+        self.operation_info = {'operation': 'Mean',
+                               'enabled': False,
+                               'start': -5,
+                               'stop': 5,
+                               'weighted': False}
 
         with dpg.child_window(width = G.CONFIG_DICT['app_settings']['option_panel_width'], # G.OPTIONS_PANEL_WINDOW_DEFAULTS['WINDOW_WIDTH'], 
                               height = G.CONFIG_DICT['app_settings']['option_panel_height'],
@@ -258,12 +263,14 @@ class ImageTools:
 
 
     def get_operation_info(self):
+        
+        self.operation_info['operation'] = dpg.get_value('ImageTools_perform_operation_combobox')
+        self.operation_info['enabled'] = dpg.get_value('ImageTools_operation_enabled')
+        self.operation_info['start'] = dpg.get_value('ImageTools_perform_operation_start')
+        self.operation_info['stop'] = dpg.get_value('ImageTools_perform_operation_end')
+        self.operation_info['weighted'] = dpg.get_value('ImageTools_operation_weighted_checkbox')
 
-        return {'operation': dpg.get_value('ImageTools_perform_operation_combobox'),
-                'enabled': dpg.get_value('ImageTools_operation_enabled'),
-                'start': dpg.get_value('ImageTools_perform_operation_start'),
-                'stop': dpg.get_value('ImageTools_perform_operation_end'),
-                'weighted': dpg.get_value('ImageTools_operation_weighted_checkbox')}
+        return self.operation_info
 
 
     def update_operation(self):

@@ -504,7 +504,7 @@ class OptionsPanel:
                 
             with dpg.group(horizontal=True):
                 dpg.add_text('Volume Basis ')
-                dpg.add_text(f'(1.000, 0.000, 0.000)\n(0.000, 1.000, 0.000)\n(0.000, 0.000, 1.000)',
+                dpg.add_text(f'(1.000, 0.000, 0.000, 0.000)\n(0.000, 1.000, 0.000, 0.000)\n(0.000, 0.000, 1.000, 0.000)\n(0.000, 0.000, 0.000, 1.000)',
                              tag = 'OptionPanel_volume_basis_display')
 
         self.disable_options()
@@ -958,7 +958,7 @@ class OptionsPanel:
                         return
 
     def clamp_option_value(self, option_key, new_value):
-        print(f'OptionPanel Message: clamp_option_value: {option_key = }, {new_value = }')
+        print(f'OptionsPanel Message: clamp_option_value: {option_key = }, {new_value = }')
         if option_key in self.VolumeLayerGroups.get_current_volume().orientation_control_list:
             min_value = getattr(self.VolumeLayerGroups.get_current_volume().Orientation, 
                                 option_key).limit_low
