@@ -1,38 +1,48 @@
 from .Globals import *
 from . import VolumeLayer
-from . import Landmarks
 
 class InformationBox(object):
-    def __init__(self, volume_layer_groups: VolumeLayer.VolumeLayerGroups):
+    def __init__(self, 
+                 VolumeLayerGroups: VolumeLayer.VolumeLayerGroups):
         
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
 
         self.group_text = ''
-        self.landmark_volumes = {}
         self.items = []
-        self.landmark_circles = []
         self.aliases = []
         self.infobox_options = []
         self.landmark_volumes = []
-        self.volume_layer_groups = volume_layer_groups
+        self.handler_list = []
+        self.VolumeLayerGroups = VolumeLayerGroups
+        self.OptionsPanel = None
+        self.item_handler_registry = dpg.add_item_handler_registry(tag = create_tag('InformationBox', 'ItemHandlerRegistry', 'DoubleClick'))
+
+        dpg.add_item_double_clicked_handler(button=dpg.mvMouseButton_Left,
+                                            callback=self.landmark_double_clicked, 
+                                            user_data = None,
+                                            tag = 'information_box_mouse_double_click_handler',
+                                            parent = self.item_handler_registry)
+        self.handler_list.append(dpg.last_item())
+
+        dpg.add_item_clicked_handler(button=dpg.mvMouseButton_Right,
+                                     callback = self.item_right_clicked,
+                                     tag = 'information_box_mouse_right_click_handler',
+                                     parent = self.item_handler_registry)
+        self.handler_list.append(dpg.last_item())
         
         with dpg.child_window(tag = 'InformationBox_Window',
                               width = G.CONFIG_DICT['app_settings']['info_box_width'], # G.INFORMATION_BOX_WINDOW_DEFAULTS['WINDOW_WIDTH'], 
                               height = G.CONFIG_DICT['app_settings']['info_box_height']): #G.INFORMATION_BOX_WINDOW_DEFAULTS['WINDOW_HEIGHT']):
             with dpg.tab_bar(tag = 'InfoBox_TabBar'):
-                with dpg.tab(label = 'Landmarks', tag = 'landmark_tab'):
-                    dpg.add_button(label = 'Save Landmarks', tag = 'save_landmarks_button', 
-                                   callback = self.save_landmarks, enabled=False)
-                    dpg.add_button(label = 'Load Landmarks', tag = 'load_landmarks_button', 
-                                   callback = self.load_landmarks, enabled=False)
+                dpg.add_tab(label = 'Landmarks', tag = 'InfoBoxTab_landmarks')
 
                 with dpg.tab(label = 'Group Tab', tag = 'InfoBoxTab_groups'):
                     dpg.add_text(self.group_text, 
                                  tag = 'group_tab_text')
-
-                with dpg.tab(label = 'Layer Tab', tag = 'InfoBoxTab_layers'):
-                    dpg.add_text('', tag = 'InfoBoxTab_layers_text')
+                
+                dpg.add_tab(label = 'Layer Tab', tag = 'InfoBoxTab_layers')
+                    # dpg.add_text('', tag = 'InfoBoxTab_layers_text')
 
                 with dpg.tab(label = 'Histograms', tag = 'InfoBoxTab_volume_histograms'):
                     with dpg.group(tag = 'InfoBox_histogram_volume'):
@@ -97,6 +107,7 @@ class InformationBox(object):
                                              default_value=True, 
                                              callback = self.update_histogram_volume)
                             self.infobox_options.append(dpg.get_item_alias(dpg.last_item()))
+
                     with dpg.group(tag = 'InfoBox_histogram_current_view'):
                         with dpg.plot(label = '', 
                                       tag = 'InfoBoxTab_histogram_texture_plot', 
@@ -159,6 +170,7 @@ class InformationBox(object):
                                              default_value=True, 
                                              callback = self.update_histogram_current_view)
                             self.infobox_options.append(dpg.get_item_alias(dpg.last_item()))
+
                 if G.DEBUG_MODE:
                     with dpg.tab(label = 'Debug Tab'):
                         with dpg.table(header_row = False, tag = 'DEBUG_TABLE', resizable=True):
@@ -173,8 +185,6 @@ class InformationBox(object):
                                     else:
                                         dpg.add_text(default_value = 'Test', tag = f'{debug_tag}_debug_info')
 
-    def load_landmarks(self, sender, app_data):
-        pass
     
     def get_histogram_info(self, 
                            histogram_type):
@@ -197,14 +207,20 @@ class InformationBox(object):
 
         return histogram_info_volume if histogram_type == 'volume' else histogram_info_current_view
 
+
+    def set_options_panel(self, 
+                          OptionsPanel):
+        self.OptionsPanel = OptionsPanel
+
+
     def update_histogram_volume(self):
         histogram_info = self.get_histogram_info('volume')
-        self.volume_layer_groups.update_histogram('volume', 
+        self.VolumeLayerGroups.update_histogram('volume', 
                                                   histogram_info)
 
     def update_histogram_current_view(self):
         histogram_info = self.get_histogram_info('texture')
-        self.volume_layer_groups.update_histogram('texture', 
+        self.VolumeLayerGroups.update_histogram('texture', 
                                                   histogram_info)
 
 
@@ -212,104 +228,201 @@ class InformationBox(object):
         pass
 
 
-    def load_landmarks(self, filename:Path):
-        """
-        Assume csv for now. 
+    def initialize_tables(self, volume_names):
+        with dpg.mutex():
+            for volume_name in volume_names:
+                if volume_name not in self.landmark_volumes:
+                    self.landmark_volumes.append(volume_name)
 
-        """
-        filename = Path('/data', 'pboyle', 'LambdaClinicalDataset','images_and_landmarks','nii','original', 'case1_landmarks1.txt')
+                    self.initialize_landmark_table(volume_name)
+                    self.initialize_layers_table(volume_name)
 
-        landmarks = np.genfromtxt(filename, dtype=np.float32, delimiter = ',')
-        steps = G.APP.main_view.current_volume_info.ctvolume.pixel_steps
-        for landmark in landmarks[:1]:
-            # print(f'InformationBox Message: Adding landmark {landmark}')
-            self.add_landmark(option = 'file', landmark_point_image = np.round([landmark[0]*steps[0], landmark[1]*steps[1], landmark[2]*steps[2], 0.0], decimals = 2))
+    def initialize_layers_table(self, volume_name):
+        print(f'InformationBox Message: Adding Layers Table: {volume_name}_layers_table')
+        with dpg.tree_node(label = volume_name, 
+                        tag = f'{volume_name}_layers_node', 
+                        parent = 'InfoBoxTab_layers'):
+            self.items.append(f'{volume_name}_layers_node')
+            with dpg.table(header_row = False, 
+                        tag = f'{volume_name}_layers_table',
+                        height = 150,
+                        clipper = True,
+                        scrollY = True):
+                self.items.append(f'{volume_name}_layers_table')
+                dpg.add_table_column(width_stretch=True, init_width_or_weight = 0.15)
+                dpg.add_table_column(width_stretch=True, init_width_or_weight = 0.85)
 
+            dpg.show_item(f'{volume_name}_layers_table')
 
-    def save_landmarks(self):
-        print('InformationBox Message: save_landmarks')
-        self.volume_layer_groups.save_landmarks()
+    def initialize_landmark_table(self, volume_name):
+        print(f'InformationBox Message: Adding Landmark Table: {volume_name}_landmarks_table')
+        with dpg.tree_node(label = volume_name, 
+                        tag = f'{volume_name}_landmarks_node', 
+                        parent = 'InfoBoxTab_landmarks'):
+            self.items.append(f'{volume_name}_landmarks_node')
+            with dpg.table(header_row = True, 
+                        tag = f'{volume_name}_landmarks_table',
+                        height = 250,
+                        clipper = True,
+                        scrollY = True):
+                self.items.append(f'{volume_name}_landmarks_table')
+                dpg.add_table_column(label = ' ', width = 10, width_fixed = True)
+                dpg.add_table_column(label = f'{"X":^7}') # X
+                dpg.add_table_column(label = f'{"Y":^7}') # Y
+                dpg.add_table_column(label = f'{"Z":^7}') # Z
+                dpg.add_table_column(label = f'{"I":^7}') # I
 
-
+            dpg.show_item(f'{volume_name}_landmarks_table')
+        
     def initialize_landmark_tables(self, volume_names):
-        for volume_name in volume_names:
-            if volume_name not in self.landmark_volumes:
-                self.landmark_volumes.append(volume_name)
+        with dpg.mutex():
+            for volume_name in volume_names:
+                if volume_name not in self.landmark_volumes:
+                    self.landmark_volumes.append(volume_name)
 
-                print(f'InformationBox Message: Adding Landmark Table: {volume_name}_landmarks_table')
+                    print(f'InformationBox Message: Adding Landmark Table: {volume_name}_landmarks_table')
 
-                with dpg.tree_node(label = volume_name, 
-                                   tag = f'{volume_name}_landmarks_node', 
-                                   parent = 'landmark_tab',
-                                   ):
-                    self.items.append(f'{volume_name}_landmarks_node')
-                    with dpg.table(header_row = True, 
-                                   tag = f'{volume_name}_landmarks_table',
-                                   scrollY = True):
-                        self.items.append(f'{volume_name}_landmarks_table')
-                        dpg.add_table_column(label = f'{"X":^7}') # X
-                        dpg.add_table_column(label = f'{"Y":^7}') # Y
-                        dpg.add_table_column(label = f'{"Z":^7}') # Z
-                        dpg.add_table_column(label = f'{"I":^7}') # I
+                    with dpg.tree_node(label = volume_name, 
+                                    tag = f'{volume_name}_landmarks_node', 
+                                    parent = 'InfoBoxTab_landmarks'):
+                        self.items.append(f'{volume_name}_landmarks_node')
+                        with dpg.table(header_row = True, 
+                                    tag = f'{volume_name}_landmarks_table',
+                                    height = 250,
+                                    clipper = True,
+                                    scrollY = True):
+                            self.items.append(f'{volume_name}_landmarks_table')
+                            dpg.add_table_column(label = ' ', width = 10, width_fixed = True)
+                            dpg.add_table_column(label = f'{"X":^7}') # X
+                            dpg.add_table_column(label = f'{"Y":^7}') # Y
+                            dpg.add_table_column(label = f'{"Z":^7}') # Z
+                            dpg.add_table_column(label = f'{"I":^7}') # I
+
+                        dpg.show_item(f'{volume_name}_landmarks_table')
+
+    def add_layer(self, 
+                  volume_name: str, 
+                  affine: np.ndarray):
+        layers_tab_text = f''
+
+        for vector, text_end in zip(affine, ['\n', '\n', '\n', '']):
+            values = np.round(vector, decimals = 4).tolist()
+            text = f'[{values[0]:>7.4f}, {values[1]:>7.4f}, {values[2]:>7.4f}, {values[3]:>10.4f}]'
+            layers_tab_text = f'{layers_tab_text}{text}{text_end}'
+        
+        with dpg.table_row(parent=f'{volume_name}_layers_table', 
+                           tag = f'{volume_name}_layers_row'):
+            
+            self.items.append(f'{volume_name}_layers_row')
+            dpg.add_selectable(label = 'Affine\n \n \n ', 
+                                span_columns=True,
+                                tag = f'{volume_name}_layers_affine_row_label')
+            self.items.append(f'{volume_name}_layers_affine_row_label')
+
+            dpg.add_selectable(label = layers_tab_text, 
+                                span_columns=True,
+                                tag = f'{volume_name}_layers_affine_row_info')
+            self.items.append(f'{volume_name}_layers_affine_row_info')
+
 
     def add_landmark(self, 
                      volume_name, 
                      landmark_index,
-                     landmark_coords,
+                     landmark_affine,
+                     landmark_hu,
+                    #  landmark_coords,
+                    #  landmark_geometry,
+                    #  landmark_quaternion,
                      landmark_id,
                      landmark_patch_id,
                      landmark_patch,
                      texture_registry = 'main_texture_registry'):
         
-        # print('InformationBox Message: add_landmark')
-        # print(f'\tvolume_name           : {volume_name}')
-        # print(f'\tlandmark_index        : {landmark_index}')
+        print('InformationBox Message: add_landmark')
+        print(f'\tvolume_name           : {volume_name}')
+        print(f'\tlandmark_index        : {landmark_index}')
+        print(f'\tlandmark_affine       : {landmark_affine}')
+        print(f'\tlandmark_hu           : {landmark_hu}')
         # print(f'\tlandmark_coords       : {landmark_coords}')
-        # print(f'\tlandmark_id           : {landmark_id}')
-        # print(f'\tlandmark_patch_id     : {landmark_patch_id}')
-        # print(f'\tlandmark_patch        : {landmark_patch}')
+        # print(f'\tlandmark_quaternion   : {landmark_quaternion}')
+        # print(f'\tlandmark_geometry     : {landmark_geometry}')
+        print(f'\tlandmark_id           : {landmark_id}')
+        print(f'\tlandmark_patch_id     : {landmark_patch_id}')
+        print(f'\tlandmark_patch        : {landmark_patch}')
+        # affine = landmark_affine[0]
+        # rotation = landmark_affine[1]
+        # scaling = landmark_affine[2]
+        # translation = landmark_affine[3]
+        landmark_coords = landmark_affine[0, :3, 3]
+        landmark_hu = landmark_hu.round(3)
+        current_row = len(dpg.get_item_children(f'{volume_name}_landmarks_table', slot = 1)) + 1
+        with dpg.mutex():
+            with dpg.table_row(parent=f'{volume_name}_landmarks_table', 
+                               tag = f'{volume_name}_landmark_{landmark_index}_row',
+                               user_data = [landmark_affine, landmark_hu]): 
+                            #    user_data = [landmark_coords, 
+                            #                 landmark_geometry, 
+                            #                 landmark_quaternion]):
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row')
 
-        with dpg.table_row(parent=f'{volume_name}_landmarks_table', 
-                           tag = f'{volume_name}_landmark_{landmark_index}_row'):
-            # dpg.add_selectable(label = f'{landmark_coords[0]:>7.2f}, {landmark_coords[1]:>7.2f}, {landmark_coords[2]:>7.2f}, {landmark_coords[3]:>7.2f}', 
-            #                    span_columns=True,
-            #                    tag = f'{volume_name}_landmark_{landmark_index}_selectable')
-            dpg.add_selectable(label = f'{landmark_coords[0]:>7.2f}',
-                               span_columns = True)
-            dpg.add_selectable(label = f'{landmark_coords[1]:>7.2f}',
-                               span_columns = True)
-            dpg.add_selectable(label = f'{landmark_coords[2]:>7.2f}',
-                               span_columns = True)
-            dpg.add_selectable(label = f'{landmark_coords[3]:>7.2f}',
-                               span_columns = True)
-            # self.items.append(f'{volume_name}_landmark_{landmark_index}_selectable')
-            self.items.append(f'{volume_name}_landmark_{landmark_index}_row')
-            
-            with dpg.popup(dpg.last_item(), 
-                           mousebutton = dpg.mvMouseButton_Right, 
-                           min_size = [15, 15]):
-                with dpg.drawlist(height = 115, 
-                                  width = 115, 
-                                  tag = f'{landmark_id}||PatchDrawList'):
-                    dpg.add_static_texture(width = landmark_patch[0], 
-                                           height = landmark_patch[0],
-                                           default_value = landmark_patch[1],
-                                           tag = landmark_patch_id,
-                                           parent = texture_registry)
-                    dpg.draw_image(landmark_patch_id,
-                                   pmin = [0, 0], 
-                                   pmax = [115, 115])
-                    
-                dpg.add_button(label = 'Remove Landmark', 
-                               user_data = [volume_name, landmark_id],
-                               tag = f'remove++{volume_name}++landmark++{landmark_index}', 
-                               callback = self.delete_landmark)
-                self.items.append(f'remove++{volume_name}++landmark++{landmark_index}')
+                dpg.add_selectable(label = f'{current_row}', 
+                                   span_columns=True, 
+                                   user_data = f'{volume_name}_landmark_{landmark_index}_popup',
+                                   tag = f'{volume_name}_landmark_{landmark_index}_row_index')
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row_index')
 
+                dpg.add_selectable(label = f'{landmark_coords[1]:>7.2f}',
+                                   span_columns = True,
+                                   user_data = f'{volume_name}_landmark_{landmark_index}_popup',
+                                   tag = f'{volume_name}_landmark_{landmark_index}_row_x')
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row_x')
+
+                dpg.add_selectable(label = f'{-1.0 * landmark_coords[0] + 0.0:>7.2f}',
+                                   span_columns = True,
+                                   user_data = f'{volume_name}_landmark_{landmark_index}_popup',
+                                   tag = f'{volume_name}_landmark_{landmark_index}_row_y')
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row_y')
+
+                dpg.add_selectable(label = f'{landmark_coords[2]:>7.2f}',
+                                   span_columns = True,
+                                   user_data = f'{volume_name}_landmark_{landmark_index}_popup',
+                                   tag = f'{volume_name}_landmark_{landmark_index}_row_z')
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row_z')
+
+                dpg.add_selectable(label = f'{landmark_hu:>7.2f}',
+                                   span_columns = True,
+                                   user_data = f'{volume_name}_landmark_{landmark_index}_popup',
+                                   tag = f'{volume_name}_landmark_{landmark_index}_row_i')
+                self.items.append(f'{volume_name}_landmark_{landmark_index}_row_i')
+                
+                with dpg.popup(dpg.last_item(), 
+                               mousebutton = dpg.mvMouseButton_Right, 
+                               min_size = [15, 15], 
+                               tag = f'{volume_name}_landmark_{landmark_index}_popup'):
+                    with dpg.drawlist(height = 115, 
+                                    width = 115, 
+                                    tag = f'{landmark_id}||PatchDrawList'):
+                        dpg.add_static_texture(width = landmark_patch[0], 
+                                               height = landmark_patch[0],
+                                               default_value = landmark_patch[1],
+                                               tag = landmark_patch_id,
+                                               parent = texture_registry)
+                        dpg.draw_image(landmark_patch_id,
+                                       pmin = [0, 0],
+                                       pmax = [115, 115])
+                        
+                    dpg.add_button(label = 'Remove Landmark', 
+                                user_data = [volume_name, landmark_id],
+                                tag = f'remove++{volume_name}++landmark++{landmark_index}', 
+                                callback = self.delete_landmark)
+                    self.items.append(f'remove++{volume_name}++landmark++{landmark_index}')
+
+            for row_child in dpg.get_item_children(f'{volume_name}_landmark_{landmark_index}_row', 1):
+                dpg.bind_item_handler_registry(row_child, self.item_handler_registry)
 
     def delete_landmark(self, sender, app_data, user_data):
         volume_name, landmark_id = user_data
-        self.volume_layer_groups.delete_landmark(volume_name, landmark_id)
+        self.VolumeLayerGroups.delete_landmark(volume_name, landmark_id)
         
         popup_id = dpg.get_item_parent(sender)
         volume_name = sender.split('++')[1]
@@ -318,12 +431,72 @@ class InformationBox(object):
         dpg.configure_item(popup_id, show=False)
 
         dpg.delete_item(f'{volume_name}_landmark_{landmark_index}_row')
-        # dpg.delete_item(f'{volume_name}_landmark_{landmark_index}_selectable')
+
         dpg.delete_item(f'{volume_name}_landmark_{landmark_index}_circle')
         dpg.delete_item(popup_id)
-        # print(f'InformationBox Message: Deleted {volume_name}_landmark_{landmark_index}_selectable')
+
         print(f'InformationBox Message: Deleted {volume_name}_landmark_{landmark_index}_circle')
-    
+
+    def item_right_clicked(self, sender, app_data, user_data):
+        if self.VolumeLayerGroups.active:
+            _, row_child = app_data
+        
+            popup_id = dpg.get_item_user_data(row_child)
+            with dpg.mutex():
+                if dpg.get_item_pos(popup_id) != dpg.get_mouse_pos(local=False):
+                    dpg.set_item_pos(popup_id, dpg.get_mouse_pos(local=False))
+                if dpg.is_item_shown(popup_id):
+                    dpg.hide_item(popup_id)
+                if not dpg.is_item_shown(popup_id):
+                    dpg.show_item(popup_id)
+
+    def landmark_double_clicked(self, sender, app_data, user_data):
+        """
+        dpg.get_item_user_data(dpg.get_item_parent(row_child)):
+            user_data = [landmark_coords, 
+                         landmark_geometry, 
+                         landmark_quaternion]
+        """
+        print('Landmark Double Clicked!')
+        if self.VolumeLayerGroups.active:
+            _, row_child = app_data
+            affine, landmark_hu = dpg.get_item_user_data(dpg.get_item_parent(row_child))
+            rotation, scaling, translation = affine[1:]
+            location = translation[:3, 3]
+            geometry = np.diag(scaling)
+            quaternion = qtn.array.from_rotation_matrix(rotation)
+            # location, geometry, quaternion = dpg.get_item_user_data(dpg.get_item_parent(row_child))
+
+            origin_x = np.round(location[1], decimals = 2) + 0.0
+            origin_y = np.round(-1.0*location[0], decimals = 2) + 0.0
+            origin_z = np.round(location[2], decimals = 2) + 0.0
+
+            dpg.set_value('origin_x_slider_current_value', origin_x)
+            dpg.set_value('origin_y_slider_current_value', origin_y)
+            dpg.set_value('origin_z_slider_current_value', origin_z)
+
+            pixel_spacing_x = np.round(1.0 / geometry[1], decimals = 2) + 0.0
+            pixel_spacing_y = np.round(1.0 / geometry[0], decimals = 2) + 0.0
+            slice_thickness = np.round(1.0 / geometry[2], decimals = 2) + 0.0
+
+            dpg.set_value('pixel_spacing_x_input_current_value', pixel_spacing_x)
+            dpg.set_value('pixel_spacing_y_input_current_value', pixel_spacing_y)
+            dpg.set_value('slice_thickness_input_current_value', slice_thickness)
+
+            # quaternion = qtn.array(quaternion)
+            print(f'Rotation Matrix: \n\t{quaternion.to_rotation_matrix}')
+            print(f'Spherical      : \n\t{quaternion.to_spherical_coordinates}')
+            print(f'Scalar, Vector : \n\t{quaternion.scalar}, {quaternion.vector}')
+            print(f'Align          : \n\t{qtn.align(np.array([[0.0, 0.0, -1.0]]), quaternion.rotate(np.array([[0.0, 0.0, -1.0]]), axis = -1))}')
+            yaw, pitch, roll = np.rad2deg(quaternion.to_axis_angle)
+            dpg.set_item_user_data('OptionPanel_quaternion_display', quaternion)
+
+            dpg.set_value('yaw_slider_current_value', np.round(yaw, decimals = 4) + 0.0)
+            dpg.set_value('pitch_slider_current_value', np.round(pitch, decimals = 4) + 0.0)
+            dpg.set_value('roll_slider_current_value', np.round(roll, decimals = 4) + 0.0)
+
+            self.OptionsPanel.update_volume('InformationBox.landmark_double_clicked', 'Set', None)
+
 
     def reset_histogram_plot(self):
         dpg.hide_item('InfoBoxTab_histogram_volume_plot_line_series')
@@ -334,8 +507,8 @@ class InformationBox(object):
                       [np.zeros(5), np.zeros(5)])
 
 
-    def load_image(self, volume_layer_groups:VolumeLayer.VolumeLayerGroups):
-        self.update_group_names(volume_layer_groups)
+    def load_image(self, VolumeLayerGroups:VolumeLayer.VolumeLayerGroups):
+        self.update_group_names(VolumeLayerGroups)
         self.enable_options()
         dpg.show_item('InfoBoxTab_histogram_volume_plot_line_series')
         dpg.show_item('InfoBoxTab_histogram_texture_plot_line_series')
@@ -354,9 +527,9 @@ class InformationBox(object):
         self.disable_options()
 
 
-    def update_group_names(self, volume_layer_groups: VolumeLayer.VolumeLayerGroups = None):
+    def update_group_names(self, VolumeLayerGroups: VolumeLayer.VolumeLayerGroups = None):
         self.group_text = ''
-        for group in volume_layer_groups.group_names: #G.APP.VolumeLayerGroups.group_names:
+        for group in VolumeLayerGroups.group_names: #G.APP.VolumeLayerGroups.group_names:
             self.group_text = f'{self.group_text}\n{group}'
         dpg.set_value('group_tab_text', self.group_text)
 
@@ -364,11 +537,16 @@ class InformationBox(object):
     def enable_options(self):
         for option_tag in self.infobox_options:
             dpg.enable_item(option_tag)
-    
+
+        for handler in self.handler_list:
+            dpg.show_item(handler)
 
     def disable_options(self):
         for option_tag in self.infobox_options:
             dpg.disable_item(option_tag)
+
+        for handler in self.handler_list:
+            dpg.hide_item(handler)
 
     def _cleanup_(self):
         pass

@@ -46,7 +46,12 @@ class NodeEditor(object):
         # app_data -> link_id
         dpg.delete_item(app_data)
 
-    def open_node_editor(self):
-        dpg.show_item(self.tag)
+    def open(self):
+        if not dpg.is_item_shown(self.tag):
+            dpg.show_item(self.tag)
+
+    def close(self):
+        if dpg.is_item_shown(self.tag):
+            dpg.hide_item(self.tag)
 
     pass

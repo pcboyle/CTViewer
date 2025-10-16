@@ -284,14 +284,26 @@ class FileDialog(object):
                              'Anchor': 19}
 
     def detect_dicom_dir(file_path: Path):
+        """
+        Detects files in a DICOM directory. Can only handle image files that contain the following fields:
+            seriesUID
+            bit_depth
+            rows
+            cols
+            direction_cosines
+            affine
+            slice_thickness
+            pixel_spacing
+        """
         with dpg.mutex():
             dcm_files = sorted(list(file_path.glob('*.dcm')))
             n_files = len(dcm_files)
             dcm_dir_contents = None
-            # print(f'FileDialog Message: {file_path}\n\t{n_files}')
             is_dicom_dir = False
+            is_dicom_image_dir = False
             if n_files > 0:
                 is_dicom_dir = True
+                is_dicom_image_dir = False
                 dcm_dir_contents = {}
                 print(f'FileDialog Message:\tDetect Dicom Dir {file_path.name}: {n_files}')
                 gdcm_dir = gdcm.Directory()
@@ -306,15 +318,19 @@ class FileDialog(object):
 
                 scanned = scanner.Scan(file_names)
 
-                im_pos_array = np.zeros((n_files,3), dtype = np.float64)
+                im_pos_array = np.zeros((n_files,3), dtype = np.float32)
+                slice_locations = np.zeros(n_files, dtype = np.float32)
 
                 for file_index, file in enumerate(file_names):
                     pttv = gdcm.PythonTagToValue(scanner.GetMapping(file))
                     pttv.Start()
+
                     while (not pttv.IsAtEnd()):
                         tag:str = pttv.GetCurrentTag()
                         value:str = pttv.GetCurrentValue()
                         match tag.PrintAsContinuousString():
+                            case "00080060":
+                                modality = f'{value.strip()}'
                             case "0020000e":
                                 seriesUID = f'{value.strip()}'
                             case "00280100":
@@ -335,31 +351,49 @@ class FileDialog(object):
                                 slice_thickness = float(value.strip())
                             case "00280030":
                                 pix_spacing = np.array(value.strip().split('\\'), dtype = float)
+                            case "00201041":
+                                slice_locations[file_index] = float(value.strip())
                         pttv.Next()
 
                     if f'{seriesUID}' not in dcm_dir_contents:
-                        dcm_dir_contents[f'{seriesUID}'] = {'files': [], 
-                                                            'dir': file_path,
-                                                            'shape': [cols, rows, 0], 
-                                                            'dtype': f'int{bit_depth}',
-                                                            'im_pos': np.zeros((n_files, 3)),
-                                                            'direction_cosines':np.zeros(6),
-                                                            'affine': np.eye(4,4)}
+                        dcm_dir_contents[f'{seriesUID}'] = {'dicom_files': [], 
+                                                            'modalities': [],
+                                                            'dir': file_path}
+                        
+                        if modality in DICOM_Tags.IMAGE_TAGS:
+                            is_dicom_image_dir = True
+                            dcm_dir_contents[f'{seriesUID}'].update({'shape': [cols, rows, 0], 
+                                                                     'dtype': f'int{bit_depth}',
+                                                                     'im_pos': np.zeros((n_files, 3)),
+                                                                     'slice_location': np.zeros(n_files),
+                                                                     'direction_cosines': np.zeros(6),
+                                                                     'affine': np.eye(4,4)})
+                    
+                    dcm_dir_contents[seriesUID]['dicom_files'].append(file)
+                    dcm_dir_contents[seriesUID]['modalities'].append(modality)
+                    if is_dicom_image_dir:
+                        dcm_dir_contents[seriesUID]['shape'][2] += 1
+                        dcm_dir_contents[seriesUID]['im_pos'][:] = im_pos_array[:] # X, Y, Z
+                        dcm_dir_contents[seriesUID]['slice_location'][:] = slice_locations[:]
 
-                    dcm_dir_contents[seriesUID]['files'].append(file)
-                    dcm_dir_contents[seriesUID]['shape'][2] += 1
-                    dcm_dir_contents[seriesUID]['im_pos'][:] = im_pos_array[:] # X, Y, Z
+                if is_dicom_image_dir:
+                    # We want the indices to go from large to small. 
+                    sorted_indices = np.argsort(dcm_dir_contents[seriesUID]['slice_location'])[::-1] 
+                    dcm_dir_contents[seriesUID]['slice_location'][:] = dcm_dir_contents[seriesUID]['slice_location'][sorted_indices]
+                    dcm_dir_contents[seriesUID]['dicom_files'] = np.array(dcm_dir_contents[seriesUID]['dicom_files'])[sorted_indices].tolist()
+                    dcm_dir_contents[seriesUID]['modalities'] = [dcm_dir_contents[seriesUID]['modalities'][i] for i in sorted_indices]
+                    dcm_dir_contents[seriesUID]['im_pos'][:] = dcm_dir_contents[seriesUID]['im_pos'][sorted_indices]
 
-                dcm_dir_contents[seriesUID]['direction_cosines'][:] = dir_cos[:]
-                dcm_dir_contents[seriesUID]['affine'][:3,0] = dir_cos[:3]*pix_spacing[1] # Delta Col
-                dcm_dir_contents[seriesUID]['affine'][:3,1] = dir_cos[3:]*pix_spacing[0] # Delta Row
-                dcm_dir_contents[seriesUID]['affine'][:3,2] = dcm_dir_contents[seriesUID]['im_pos'][1] - dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0 # Slice Thickness
-                dcm_dir_contents[seriesUID]['affine'][:3,3] = dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0
+                    dcm_dir_contents[seriesUID]['direction_cosines'][:] = dir_cos[:]
+                    dcm_dir_contents[seriesUID]['affine'][:3,0] = dir_cos[:3]*pix_spacing[1] # Delta Col
+                    dcm_dir_contents[seriesUID]['affine'][:3,1] = dir_cos[3:]*pix_spacing[0] # Delta Row
+                    dcm_dir_contents[seriesUID]['affine'][:3,2] = dcm_dir_contents[seriesUID]['im_pos'][1] - dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0 # Slice Thickness
+                    dcm_dir_contents[seriesUID]['affine'][:3,3] = dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0
 
                 del gdcm_dir
                 del scanner
             
-            if is_dicom_dir:
+            if is_dicom_image_dir:
                 print(f'FileDialog Message: Dicom file {file_path.name} Affine:')
                 for affine_element in dcm_dir_contents[seriesUID]['affine']:
                     print(f'\t{affine_element}')
@@ -367,7 +401,6 @@ class FileDialog(object):
                 print(f'FileDialog Message: Image Position Col: {dcm_dir_contents[seriesUID]['im_pos'][1]}')
                 print(f'FileDialog Message: Delta X           : {dir_cos[:3]*pix_spacing[1]}')
                 print(f'FileDialog Message: Delta Y           : {dir_cos[3:]*pix_spacing[0]}')
-
 
             return dcm_dir_contents
 
@@ -460,9 +493,9 @@ class FileDialog(object):
         self.current_directory = Path(path)
         self.has_parent = has_parent
         self.debug = debug
-        self.volume_layer_groups: VolumeLayer.VolumeLayerGroups = None
-        self.information_box: InformationBox.InformationBox = None
-        self.drawlist_tag = '',
+        self.VolumeLayerGroups: VolumeLayer.VolumeLayerGroups = None
+        self.InformationBox: InformationBox.InformationBox = None
+        self.drawlayer_tag = '',
         self.current_directory_file_dict = {}
         self.selected_files_dict = {}
         self.file_extension_dict = {"All Files (*)": [[''], []],
@@ -512,14 +545,14 @@ class FileDialog(object):
                            'dicom': self.dicom_theme,
                            'nifti': self.nifti_theme}
         # self.default_table_size = [0.56, 0.1, 0.215, 0.125]
-        self.default_table_size = [0.38, 0.15, 0.30, 0.17]
+        self.default_table_size = [0.575, 0.10, 0.20, 0.125]
         self.chosen_file_nodes = {}
         self.chosen_table_theme = create_tag('FileDialog', 'Theme', 'ChosenFilesTable')
         self.current_sort_app_data = []
         self.current_filter_app_data = []
         self.chosen_table_user_data = [0, []] # current_indent_level, [selected_rows]
         self.chosen_volume_text_tag = create_tag('FileDialog', 'Text', 'ChosenVolumes')
-
+        self.is_windows_drive_parent = False
         self.last_selected_file = None
         self.parsed_file = None
         self.load_file_dict = None
@@ -534,18 +567,18 @@ class FileDialog(object):
             dpg.bind_item_theme(item, self.theme_dict[file_type])
 
     def initialize(self, 
-                   volume_layer_groups: VolumeLayer.VolumeLayerGroups = None,
-                   draw_window: NewMainView.MainView = None, 
-                   options_panel: OptionsPanel.OptionsPanel = None,
-                   information_box: InformationBox.InformationBox = None,
+                   VolumeLayerGroups: VolumeLayer.VolumeLayerGroups = None,
+                   DrawWindow: NewMainView.MainView = None, 
+                   OptionsPanel: OptionsPanel.OptionsPanel = None,
+                   InformationBox: InformationBox.InformationBox = None,
                    debug = False):
         if not self.has_parent:
             dpg.create_context()
 
-        self.volume_layer_groups = volume_layer_groups
-        self.draw_window = draw_window
-        self.options_panel = options_panel
-        self.information_box = information_box
+        self.VolumeLayerGroups = VolumeLayerGroups
+        self.DrawWindow = DrawWindow
+        self.OptionsPanel = OptionsPanel
+        self.InformationBox = InformationBox
 
         dpg.add_item_double_clicked_handler(button = dpg.mvMouseButton_Left, tag = self.double_click_handler_tag, callback = self.double_click_callback, parent = G.ITEM_HANDLER_REG_TAG)
         dpg.add_item_clicked_handler(button = dpg.mvMouseButton_Left, tag = self.single_click_handler_tag, callback = self.item_single_clicked, parent = G.ITEM_HANDLER_REG_TAG)
@@ -590,7 +623,8 @@ class FileDialog(object):
             
             with dpg.group(horizontal=True, tag = create_tag('FileDialog', 'Group', 'FileDialogContents')):
                 with dpg.child_window(tag = create_tag('FileDialog', 'Window', 'CurrentDirectoryContents'), 
-                                      width = 500, height = 350):
+                                      width = 750, 
+                                      height = 350):
                     with dpg.group(horizontal = True, 
                                    tag = self.navigation_buttons_group_tag):
                         
@@ -601,14 +635,14 @@ class FileDialog(object):
                                        tag = self.go_up_directory_button_tag, 
                                        arrow = True, 
                                        direction = dpg.mvDir_Up,
-                                       callback = self.change_current_directory)
+                                       callback = self.go_up_directory)
 
                         dpg.add_button(label = 'R', 
                                        width = 19, 
                                        height = 19, 
                                        user_data = False,
                                        tag = self.refresh_directory_button_tag,
-                                       callback = self.refresh_current_directory)
+                                       callback = self.refresh_directory_button)
                         
                         dpg.add_text(f'{self.format_displayed_path(self.current_directory)}', 
                                      tag = self.current_directory_text_tag)
@@ -640,10 +674,12 @@ class FileDialog(object):
                     with dpg.group(horizontal = True, tag = create_tag('FileDialog', 'HorizontalGroup', 'FileSelectionParams')):
                         dpg.add_combo(items = list(self.file_extension_dict.keys()), # app_data of form [selected_string]
                                       tag = self.file_filter_combobox_tag,
-                                      width = -0, default_value = list(self.file_extension_dict.keys())[0],
+                                      width = -0, 
+                                      default_value = list(self.file_extension_dict.keys())[0],
                                       callback = self.filter_table_results_callback) 
                         self.filter_combobox_app_data = list(self.file_extension_dict.keys())[0]
-                        dpg.add_button(label = 'Deselect All', tag = create_tag('FileDialog', 'Button', 'DeselectAll'),
+                        dpg.add_button(label = 'Deselect All', 
+                                       tag = create_tag('FileDialog', 'Button', 'DeselectAll'),
                                        width=-1, callback = self.deselect_all)
                         
                 if self.debug:
@@ -669,7 +705,11 @@ class FileDialog(object):
                 #     dpg.add_text(default_value = '', tag = self.chosen_volume_text_tag)
 
         if not self.has_parent:
-            dpg.create_viewport(title='Custom File Dialog', width = 1720, height = 1080, x_pos = 10, y_pos = 10)
+            dpg.create_viewport(title='File Dialog', 
+                                width = 1720, 
+                                height = 1080, 
+                                x_pos = 10, 
+                                y_pos = 10)
             dpg.setup_dearpygui()
             dpg.set_primary_window(self.file_dialog_window, True)
             dpg.show_viewport()
@@ -684,6 +724,10 @@ class FileDialog(object):
                 dpg.hide_item(self.file_dialog_window)
                 dpg.configure_item(self.file_dialog_window, modal = True)
                 dpg.show_item(self.file_dialog_window)
+
+    
+    def load_landmarks(self, volume_file_id:str, volume_id: str, landmark_file: Path):
+        self.load_file_dict[volume_file_id][volume_id]
 
 
     def load_selected_volumes(self):
@@ -720,12 +764,12 @@ class FileDialog(object):
         self.load_file_dict = dict(load_file_dict)
         data_loader = DataLoader(self.load_file_dict)
         self.hide()
-        data_loader.load_selected_files(self.volume_layer_groups, 
-                                        self.draw_window)
-        data_loader.finalize_load_volumes(self.volume_layer_groups, 
-                                          self.draw_window, 
-                                          self.options_panel,
-                                          self.information_box)
+        data_loader.load_selected_files(self.VolumeLayerGroups, 
+                                        self.DrawWindow)
+        data_loader.finalize_load_volumes(self.VolumeLayerGroups, 
+                                          self.DrawWindow, 
+                                          self.OptionsPanel,
+                                          self.InformationBox)
         self.deselect_all()
 
     def get_selected_volumes(self):
@@ -785,7 +829,7 @@ class FileDialog(object):
         user_data: self.current_directory_file_dict or similar
         """
 
-        print(f'FileDialog Message: Sort files callback:\n{sender = }\n{app_data = }')
+        print(f'FileDialog Message: Sort files callback:\n{sender = }\n{app_data = }', flush = True)
     
         if app_data is None: 
             return
@@ -813,7 +857,7 @@ class FileDialog(object):
         sorted_indices = self.multisort(values_to_sort, s_specs, make_copy = True, return_sorted_list = False)
         
         dpg.reorder_items(sender, 1, sorted_indices)
-        print('FileDialog Message: Sorting done')
+        print('FileDialog Message: Sorting done', flush = True)
     
 
     def filter_table_results_callback(self, sender, app_data):
@@ -883,30 +927,37 @@ class FileDialog(object):
         pass
                         
 
-    def refresh_current_directory(self, sender, app_data, is_windows_drive_parent):
-        with dpg.mutex():
-            self.reset_table_rows(self.file_dialog_table_tag)
+    def refresh_current_directory(self, sender, app_data, is_windows_drive_parent = False):
+        self.reset_table_rows(self.file_dialog_table_tag)
 
-            self.current_directory_file_dict.clear()
-            self.table_row_tag_to_index.clear()
-            self.table_row_index_to_tag.clear()
+        self.current_directory_file_dict.clear()
+        self.table_row_tag_to_index.clear()
+        self.table_row_index_to_tag.clear()
 
-            self.parse_files_in_path(self.current_directory, 
-                                     is_windows_drive_parent = is_windows_drive_parent) # self.current_directory_file_dict, self.file_extension_dict
-            self.populate_table_rows(self.file_dialog_table_tag, self.current_directory_file_dict)
-            self.bind_table_rows(G.ITEM_HANDLER_REG_TAG, self.file_dialog_table_tag)
+        self.parse_files_in_path(self.current_directory, 
+                                 is_windows_drive_parent = is_windows_drive_parent) # self.current_directory_file_dict, self.file_extension_dict
+        
+        print('Populating Table Rows')
+        self.populate_table_rows(self.file_dialog_table_tag, self.current_directory_file_dict)
+        print('Binding Table Rows')
+        self.bind_table_rows(G.ITEM_HANDLER_REG_TAG, self.file_dialog_table_tag)
 
-            for file_id in self.selected_rows_dict.keys():
-                for table_row in self.table_row_tag_to_index.keys():
-                    if file_id in table_row:
-                        dpg_id = self.table_row_tag_to_index[table_row]
-                        # We only need the first column since that selectable covers the entire row. 
-                        for row_child in dpg.get_item_children(dpg_id, 1)[:1]:
-                            dpg.set_value(row_child, True)
-
-            self.filter_table_results_callback(self.file_filter_combobox_tag, dpg.get_value(self.file_filter_combobox_tag))
-            self.sort_files_callback(self.file_dialog_table_tag, self.current_sort_app_data, dpg.get_item_user_data(self.file_dialog_table_tag))
-        print(f'FileDialog Message: Directory {self.current_directory} refreshed.')
+        for file_id in self.selected_rows_dict.keys():
+            for table_row in self.table_row_tag_to_index.keys():
+                if file_id in table_row:
+                    dpg_id = self.table_row_tag_to_index[table_row]
+                    # We only need the first column since that selectable covers the entire row. 
+                    for row_child in dpg.get_item_children(dpg_id, 1)[:1]:
+                        dpg.set_value(row_child, True)
+        
+        print('Filter Callback Table Rows')
+        self.filter_table_results_callback(self.file_filter_combobox_tag, dpg.get_value(self.file_filter_combobox_tag))
+        
+        print('Sort Files Callback')
+        self.sort_files_callback(self.file_dialog_table_tag, self.current_sort_app_data, dpg.get_item_user_data(self.file_dialog_table_tag))
+        
+        print(f'FileDialog Message: Directory {self.current_directory} refreshed.', flush = True)
+        print(f'\t{self.current_directory}')
 
     def double_click_callback(self, sender, app_data):
         if not dpg.is_item_shown(self.file_dialog_window):
@@ -915,44 +966,59 @@ class FileDialog(object):
         with dpg.mutex():
             # Gets parent 
             user_data = dpg.get_item_user_data(app_data[1])[1]
-            if dpg.is_item_shown(self.file_dialog_window):
-                if sender == self.go_up_directory_button_tag:
-                    self.change_current_directory(sender, app_data, user_data)
+            if sender == self.go_up_directory_button_tag:
+                self.change_current_directory(sender, app_data, user_data)
+                self.refresh_current_directory(None, None, self.is_windows_drive_parent)
+                print('FileDialog Message: double_click_callback', flush = True)
+                print(f'\t{sender = }')
 
-                elif user_data['Is Dir']:
-                    self.change_current_directory(sender, app_data, user_data)
+            elif user_data['Is Dir']:
+                self.change_current_directory(sender, app_data, user_data)
+                self.refresh_current_directory(None, None, self.is_windows_drive_parent)
+                print('FileDialog Message: double_click_callback', flush = True)
+                print(f'\t{user_data['Is Dir'] = }', flush = True)
+                
+            else:
+                return
+            
 
-                else:
-                    return
-        return
+    def go_up_directory(self, sender, app_data, user_data):
+        with dpg.mutex():
+            self.change_current_directory(sender, app_data, user_data)
+            self.refresh_current_directory(None, None, self.is_windows_drive_parent)
+
+
+    def refresh_directory_button(self, sender, app_data, user_data):
+        with dpg.mutex():
+            self.refresh_current_directory(sender, app_data, user_data)
+
 
     def change_current_directory(self, sender, app_data, user_data):
-        is_windows_drive_parent = False
-        with dpg.mutex():
-            if sender == self.go_up_directory_button_tag:
-                print(f'FileDialog Message: \tChanging directory to {self.current_directory.parent}.')
-                self.current_directory = self.current_directory.parent
-                
-                if len(self.drive_letters) > 0:
-                    print(self.current_directory.as_posix())
-                    if self.current_directory.as_posix() in self.drive_letters: 
-                        is_windows_drive_parent = True
-                        self.current_directory = Path('WindowsDrives')
-
-            else:
-                item_tag = dpg.get_item_alias(app_data[1])
-                print(f'FileDialog Message: \tChanging directory to {user_data['File']}.')
-                if user_data['Is Dir']:
-                    self.current_directory = Path(user_data['File'])
-                else:
-                    pass
+        if sender == self.go_up_directory_button_tag:
+            print(f'FileDialog Message: \tChanging directory to {self.current_directory.parent}.')
+            self.current_directory = self.current_directory.parent
             
-            displayed_path = self.format_displayed_path(self.current_directory, max_length=415, scale_factor=7.0)
+            if len(self.drive_letters) > 0:
+                print(self.current_directory.as_posix())
+                if self.current_directory.as_posix() in self.drive_letters: 
+                    self.is_windows_drive_parent = True
+                    self.current_directory = Path('WindowsDrives')
+            else:
+                self.is_windows_drive_parent = False
 
-            dpg.set_value(self.current_directory_text_tag, f'{displayed_path}')
+        else:
+            item_tag = dpg.get_item_alias(app_data[1])
+            print(f'FileDialog Message: \tChanging directory to {user_data['File']}.', flush = True)
+            if user_data['Is Dir']:
+                self.current_directory = Path(user_data['File'])
+            else:
+                pass
+        
+        displayed_path = self.format_displayed_path(self.current_directory, max_length=415, scale_factor=7.0)
 
-        self.refresh_current_directory(None, None, is_windows_drive_parent)
-        if not is_windows_drive_parent:
+        dpg.set_value(self.current_directory_text_tag, f'{displayed_path}')
+
+        if not self.is_windows_drive_parent:
             G.CONFIG_DICT['directories']['image_dir'] = Path(self.current_directory).as_posix()
 
     def format_displayed_path(self, path:Path, max_length = 415, scale_factor = 7.0):
@@ -1080,8 +1146,10 @@ class FileDialog(object):
         f_info_dict = {}
         for f_info in FileDialog.file_info_object.keys():
             f_info_dict[f_info] = FileDialog.file_info_object[f_info](filepath)
+
         if type(f_info_dict['Dicom Dir']) == type(dict()):
             f_info_dict['File Type'] = 'dicom_dir'
+
         if format_file_info:
             for f_info in FileDialog.file_info_formatter.keys():
                 if f_info in exclude:
@@ -1091,9 +1159,18 @@ class FileDialog(object):
             
         return f_info_dict
     
+
+    def check_read_access(self, path: Path):
+
+        read_access = os.access(path, os.R_OK)
+        if not read_access:
+            print(f'File Dialog Message: Cannot read {path}', flush = True)
+
+        return read_access
+    
     
     def parse_files_in_path(self, path: Path, is_windows_drive_parent: bool = False):
-        
+
         if is_windows_drive_parent:
             for drive_letter in self.drive_letters:
                 drive_path = Path(drive_letter)
@@ -1103,7 +1180,9 @@ class FileDialog(object):
 
         else:
             for file in path.glob('*'):
-                print(f'FileDialog Message: FILE_PARSER: {file.name}')
+                print(f'FileDialog Message: FILE_PARSER: {file.name}', flush = True)
+                if not self.check_read_access(file):
+                    continue
                 file_id = FileDialog.get_file_id(file)
                 self.current_directory_file_dict[f'{file_id}'] = self.get_file_info(file, format_file_info = True, exclude = ['Size'])
                 match self.current_directory_file_dict[f'{file_id}']['Suffix']:
@@ -1164,7 +1243,8 @@ class FileParser(object):
                            'hdf5': self.parse_hdf5_file,
                            'dicom': self.parse_dicom_files,
                            'dicom_dir': self.parse_dicom_dir,
-                           'nifti': self.parse_nifti_file}
+                           'nifti': self.parse_nifti_file,
+                           'landmark': self.parse_landmark_file}
         
         self.matfile_version_dict = {'(0, 0)': ['v4', 'mat'],
                                      '(1, 0)': ['v5', 'mat'],
@@ -1305,12 +1385,14 @@ class FileParser(object):
             series_affine = directory_info_object['Dicom Dir'][seriesUID]['affine'][:]
             series_im_pos = directory_info_object['Dicom Dir'][seriesUID]['im_pos'][:]
             series_dir = directory_info_object['Dicom Dir'][seriesUID]['dir']
+            series_dicom_files = directory_info_object['Dicom Dir'][seriesUID]['dicom_files']
             print(f'FileParser Message: Parsing {seriesUID}\n\t\t\t\tShape:{series_shape}.\n\t\t\t\tData Type:{series_dtype}')
             file_content_dict['Data'][seriesUID] = {'Name': seriesUID, 'Type': 'Dataset', 'Attributes': {'shape': series_shape, 
                                                                                                          'dtype': series_dtype, 
                                                                                                          'affine': series_affine,
                                                                                                          'im_pos': series_im_pos,
-                                                                                                         'dir': series_dir}}
+                                                                                                         'dir': series_dir,
+                                                                                                         'dicom_files': series_dicom_files}}
 
 
     def parse_nifti_file(self, file_info_object, file_content_dict):
@@ -1328,6 +1410,8 @@ class FileParser(object):
         if type(file_content_dict) == type(dict()):
             return file_content_dict
 
+    def parse_landmark_file(self, file_info_object, file_content_dict):
+        pass
 
 class DataLoader(object):
     """
@@ -1350,66 +1434,55 @@ class DataLoader(object):
             self.create_loading_window()
         
 
-
     def finalize_load_volumes(self, 
-                              volume_layer_groups: VolumeLayer.VolumeLayerGroups,
-                              draw_window: NewMainView.MainView,
-                              options_panel: OptionsPanel.OptionsPanel,
-                              information_box: InformationBox.InformationBox):
-        if volume_layer_groups.get_group_by_index(0).n_volumes > 0:
-            if not volume_layer_groups.active:
-                volume_layer_groups.set_current_volume_by_index(0, 0)
-                volume_layer_groups.get_current_volume().set_drawlayer_tag(draw_window.return_texture_drawlayer_tag(draw_window.window_tag))
-                volume_layer_groups.get_current_volume().add_texture_to_drawlist(drawlist=draw_window.return_texture_drawlayer_tag(draw_window.window_tag))
-                volume_layer_groups.get_current_volume().set_colormap_scale_tag(draw_window.return_colormap_tag(draw_window.window_tag))
-                volume_layer_groups.get_current_group().set_colormap_scale_tag(draw_window.return_colormap_tag(draw_window.window_tag))
-                volume_layer_groups.get_current_group().set_drawlayer_tag(draw_window.return_texture_drawlayer_tag(draw_window.window_tag))
-
-                information_box.load_image(volume_layer_groups)
-
-                dpg.enable_item('save_landmarks_button')
-                dpg.enable_item('load_landmarks_button')
-
-                volume_layer_groups.set_active()
-
-        G.N_VOLUMES = len(volume_layer_groups.get_current_group().volume_names)
-        G.OPTIONS_DICT['img_index_slider']['max_value'] = volume_layer_groups.get_current_group().n_volumes
-        dpg.set_item_user_data(G.OPTIONS_DICT['img_index_slider']['slider_tag'],
-                               volume_layer_groups.current_group_and_volume)
+                              VolumeLayerGroups: VolumeLayer.VolumeLayerGroups,
+                              DrawWindow: NewMainView.MainView,
+                              OptionsPanel: OptionsPanel.OptionsPanel,
+                              InformationBox: InformationBox.InformationBox):
         
-        dpg.configure_item(G.OPTIONS_DICT['img_index_slider']['slider_tag'], 
-                            max_value = volume_layer_groups.get_group_by_name('AllVolumes').n_volumes)
-        
-        G.APP.image_tools.update_selector_lists(volume_layer_groups.get_current_group().volume_names)
-        G.APP.image_tools.enable_options()
+        with dpg.mutex():
+            if VolumeLayerGroups.get_group_by_index(0).n_volumes > 0:
+                if not VolumeLayerGroups.active:
+                    VolumeLayerGroups.set_current_volume_by_index(0, 0)
+                    VolumeLayerGroups.get_current_volume().add_textures_to_drawlayers(VolumeLayerGroups.texture_drawlayer_tags)
+                    # VolumeLayerGroups.get_current_volume().add_textures_to_drawlayers(drawlayer=DrawWindow.return_texture_drawlayer_tag(window_tag))
+                    VolumeLayerGroups.get_current_volume().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
+                    VolumeLayerGroups.get_current_group().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
+                    # VolumeLayerGroups.get_current_group().set_drawlayer_tags(DrawWindow.get_texture_drawlayer_tags())
 
-        information_box.initialize_landmark_tables(volume_layer_groups.get_current_group().volume_names)
-        
-        options_panel.enable_options()
-        dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {volume_layer_groups.get_current_volume().name}')
-        
-        options_panel.update_volume('FileDialog', None, None)
-        # volume_layer_groups.get_current_group().set_text_info_tag(draw_window.return_texture_info_text_tag(draw_window.window_tag))
-        volume_layer_groups.get_current_group().set_landmark_draw_layer_tag(draw_window.return_landmark_drawlayer_tag(draw_window.window_tag))
-        volume_layer_groups.update_histogram('volume')
-        volume_layer_groups.update_histogram('texture')
+                    InformationBox.load_image(VolumeLayerGroups)
 
-        affine = volume_layer_groups.get_volume_by_index(0, 0).ctvolume.affine
-        layers_tab_text = f'{volume_layer_groups.get_volume_by_index(0, 0).name}'
+                    VolumeLayerGroups.set_active()
 
-        for row in affine:
-            layers_tab_text = f'{layers_tab_text}\n\t{row}'
-
-        for vol_index in range(1, volume_layer_groups.get_group_by_index(0).n_volumes):
-            affine = volume_layer_groups.get_volume_by_index(0, vol_index).ctvolume.affine
-            vol_name = volume_layer_groups.get_volume_by_index(0, vol_index).name
-            layers_tab_text = f'{layers_tab_text}\n{vol_name}'
+            G.N_VOLUMES = len(VolumeLayerGroups.get_current_group().volume_names)
+            G.OPTIONS_DICT['img_index_slider']['max_value'] = VolumeLayerGroups.get_current_group().n_volumes
+            dpg.set_item_user_data(G.OPTIONS_DICT['img_index_slider']['slider_tag'],
+                                VolumeLayerGroups.current_group_and_volume)
             
-            for row in affine:
-                layers_tab_text = f'{layers_tab_text}\n\t{row}'
+            dpg.configure_item(G.OPTIONS_DICT['img_index_slider']['slider_tag'], 
+                                max_value = VolumeLayerGroups.get_group_by_name('AllVolumes').n_volumes)
+            
+            G.APP.ImageTools.update_selector_lists(VolumeLayerGroups.get_current_group().volume_names)
+            G.APP.ImageTools.enable_options()
 
-        dpg.set_value('InfoBoxTab_layers_text', layers_tab_text)
-        self.hide_loading_window()
+            InformationBox.initialize_tables(VolumeLayerGroups.get_current_group().volume_names)
+            
+            OptionsPanel.enable_options()
+            dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {VolumeLayerGroups.get_current_volume().name}')
+            
+            OptionsPanel.update_volume('FileDialog', None, None)
+            # VolumeLayerGroups.get_current_group().set_landmark_draw_layer_tag(DrawWindow.return_landmark_drawlayer_tag(window_tag))
+            VolumeLayerGroups.update_histogram('volume')
+            VolumeLayerGroups.update_histogram('texture')
+
+            for vol_index in range(0, VolumeLayerGroups.get_group_by_index(0).n_volumes):
+                affine = VolumeLayerGroups.get_volume_by_index(0, vol_index).CTVolume.affine
+                vol_name = VolumeLayerGroups.get_volume_by_index(0, vol_index).name
+                InformationBox.add_layer(vol_name, 
+                                        affine)
+
+            # dpg.set_value('InfoBoxTab_layers_text', layers_tab_text)
+            self.hide_loading_window()
 
     def show_loading_window(self):
         dpg.show_item(G.LOADING_WINDOW_TAG)
@@ -1423,12 +1496,14 @@ class DataLoader(object):
                         modal=False, 
                         show=False, 
                         tag=G.LOADING_WINDOW_TAG,
-                        width = 800, height = 400, pos = [250, 250]):
+                        width = 800, 
+                        height = 400, 
+                        pos = [250, 250]):
             dpg.add_text('', tag=G.LOADING_WINDOW_TEXT)
 
     def load_selected_files(self, 
-                            volume_layer_groups: VolumeLayer.VolumeLayerGroups, 
-                            draw_window = NewMainView.MainView,
+                            VolumeLayerGroups: VolumeLayer.VolumeLayerGroups, 
+                            DrawWindow: NewMainView.MainView,
                             files_to_be_loaded_dict = None):
         
         self.show_loading_window()
@@ -1444,10 +1519,10 @@ class DataLoader(object):
             load_message = f'Loading {file_name}\n\tFile ID: {file_id}'
             dpg.set_value(G.LOADING_WINDOW_TEXT, load_message)
 
-            volume_layer_groups.add_volume_to_group('AllVolumes',
-                                                    self.load_type_dict[file_type](files_to_be_loaded_dict, 
-                                                                                   file_id, 
-                                                                                   file_name = file_name))
+            VolumeLayerGroups.add_volume_to_group('AllVolumes',
+                                                  self.load_type_dict[file_type](files_to_be_loaded_dict, 
+                                                                                 file_id, 
+                                                                                 file_name = file_name))
 
     def load_mat_file(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
         for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
@@ -1466,7 +1541,9 @@ class DataLoader(object):
                                      loadmat(files_to_be_loaded_dict[file_id]['Attributes']['file_path'], 
                                      appendmat = False, 
                                      variable_names = volume_name, 
-                                     squeeze_me = True)[volume_name])
+                                     squeeze_me = True)[volume_name],
+                                     affine = np.eye(4, dtype = np.float32),
+                                     dim_order = (0, 1, 2))
         
 
     def load_hdf5_file(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
@@ -1489,7 +1566,7 @@ class DataLoader(object):
                                          files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
                                          h5_file[volume_name][()],
                                          affine = affine,
-                                         pixel_dims = affine[[0, 1, 2], [0, 1, 2]])
+                                         dim_order = (0, 1, 2))
                 
 
     def load_dicom_files(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
@@ -1500,7 +1577,7 @@ class DataLoader(object):
             print(f'DataLoader Message: DICOM Load: {file_name}|{volume_name}')
             file_path = files_to_be_loaded_dict[file_id]['Attributes']['file_path']
             affine = files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes']['affine']
-
+            dicom_files = files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes']['dicom_files']
             print(f'DataLoader Message: File {file_name} Affine:\n\t{affine}')
             if len(files_to_be_loaded_dict[file_id]['volumes']) == 1:
                 display_name = f'{file_name}'
@@ -1509,12 +1586,17 @@ class DataLoader(object):
 
             return CTVolume.CTVolume(display_name, 
                                      file_path,
-                                     self.read_dicom_pixel_dir(file_path),
+                                     self.read_dicom_pixel_dir(file_path, dicom_files = dicom_files),
                                      affine = affine,
-                                     pixel_dims = affine[[0, 1, 2], [0, 1, 2]])
+                                     dim_order = (0, 1, 2))
         
 
     def load_nifti_file(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
+        """
+        Nifti files store their data using RAS+, in contrast to DICOMs LPS+. 
+        Additionally, Nifti's use IJK storage, rather than XYZ. That means the rows and columns are swapped. 
+        We load DICOMS as ZXY, though, so we need to move the axes around and flip them. 
+        """
         for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
             if file_name == '':
                 file_name = files_to_be_loaded_dict[file_id]['Attributes']['file_name']
@@ -1527,12 +1609,12 @@ class DataLoader(object):
                 display_name = f'{file_name}'
             else:
                 display_name = f'{file_name}/{volume_name}'
-
             return CTVolume.CTVolume(display_name, 
                                      files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
-                                     np.array(nib_file.get_fdata()),
+                                     np.array(nib_file.get_fdata(), dtype = np.float32),
                                      affine = nib_file.affine,
-                                     pixel_dims = nib_file.affine[[0, 1, 2], [0, 1, 2]])
+                                     dim_order = (0, 1, 2))
+                                     # dim_order = (2, 1, 0))
 
 
     # Dicom Utilities
@@ -1598,8 +1680,9 @@ class DataLoader(object):
     def process_dicom_file(self, index, d_file, out_volume):
         self.read_dicom_pixel_data(d_file, out_array=out_volume[:, :, index])
 
-    def read_dicom_pixel_dir(self, dicom_dir:Path, out_array = None):
-        dicom_files = sorted(list(dicom_dir.glob('*.dcm')))
+    def read_dicom_pixel_dir(self, dicom_dir:Path, dicom_files = None, out_array = None):
+        if type(dicom_files) == type(None):
+            dicom_files = sorted(list(dicom_dir.glob('*.dcm')))
         tags = [gdcm.Tag(0x7fe0,0x0010),    # Pixel Data
                 gdcm.Tag(0x0028,0x0010),    # Rows
                 gdcm.Tag(0x0028,0x0011),    # Columns

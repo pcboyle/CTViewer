@@ -563,7 +563,7 @@ class MainView:
             self.current_volume_info.set_control_options('intensity', update = True)
             # self.current_volume_info.set_control_options('geometry', update = True)
 
-            dpg.set_value('colormap_combo', self.current_volume_info.colormap_name)
+            dpg.set_value('colormap_combo_current_value', self.current_volume_info.colormap_name)
             dpg.set_value('reverse_colormap_checkbox', self.current_volume_info.colormap_reversed)
     
 

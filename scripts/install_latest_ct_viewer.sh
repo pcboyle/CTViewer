@@ -1,23 +1,25 @@
 #!/bin/bash
 
+eval "$(micromamba shell hook --shell bash)"
+
+sleep 0.5
+
 echo "Updating ct_viewer module for $USER."
 
-source /home/$USER/mambaforge/etc/profile.d/conda.sh
-source /home/$USER/mambaforge/etc/profile.d/mamba.sh
+micromamba activate ct_viewer
 
-mamba activate ct_viewer
-
-active_environment="$(mamba info | grep 'active environment' | cut -d ':' -f 2 | xargs)"
+active_environment="$(micromamba info | grep 'active environment' | cut -d ':' -f 2 | xargs)"
 
 echo "Updating ct_viewer module in the $active_environment environment."
 
-cd /home/pboyle/Dropbox/Code/Python/medical_physics/ct_viewer/dist/
+cd /home/pboyle/Dropbox/Code/Python/medical_physics/CTViewer/dist/
 
-latest_whl_file="$(find ./ -type f -iname '*.whl' | sort | tail -1)"
+latest_whl_file="$(ls -t ./*.whl | head -n 1)"
+# latest_whl_file="$(find ./ -type f -iname '*.whl' | sort | tail -1)"
 
 latest_version="$(echo $latest_whl_file | cut -d '-' -f 2)"
 
-installed_version="$(mamba list ^ct --json | jq -r '.[0].version')"
+installed_version="$(micromamba list ^ct --json | jq -r '.[0].version')"
 
 if [ $latest_version == $installed_version ]
 then

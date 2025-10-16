@@ -1,8 +1,14 @@
 import sys
 import argparse
 import datetime
+import time
 from pathlib import Path
 import platform
+import tracemalloc
+import os
+import psutil
+
+PROCESS = psutil.Process(os.getpid())
 
 try:
     from .ct_processes.Globals import *
@@ -17,16 +23,59 @@ except:
     from __init__ import __version__
 
 
+_MAXFRAMERATE_ = 1/80
+
+def get_frame_rate(s_time,
+                   frame_increment):
+    frame_datetime = datetime.datetime.now()
+    frame_delta:datetime.timedelta = (frame_datetime - s_time)
+    frames_per_second = round(frame_increment / (frame_delta.seconds + frame_delta.microseconds / 1e6))
+    if frames_per_second > 500:
+        frames_per_second = 0
+    return frames_per_second
+
+def format_bytes(size: int) -> str:
+    """Helper function to format bytes into KiB, MiB, etc."""
+    power = 1024
+    n = 2
+    power_labels = {0: '', 1: 'K', 2: 'M', 3: 'G', 4: 'T'}
+    # while size > power and n < len(power_labels) -1 :
+    #     size /= power
+    #     n += 1
+    size /= power**n
+    return f"{size:.3f} {power_labels[n]}iB"
+
 def get_gpu_memory(mempool_bytes, 
                    f_count, 
-                   f_space):
+                   f_space,
+                   f_rate):
+    
     frame_datetime = datetime.datetime.now()
     hour = f"{frame_datetime.hour}".zfill(2)
     minute = f"{frame_datetime.minute}".zfill(2)
     second = f"{frame_datetime.second}".zfill(2)
-    frame_time_string = f'{hour}-{minute}-{second}: '
+    microsecond = f"{frame_datetime.microsecond}".zfill(6)
+    frame_time_string = f'{hour}:{minute}:{second}.{microsecond}    '
     mempool_used_bytes = round(float(mempool_bytes)/1e6, ndigits=3)
     gpu_string = f'{frame_time_string}FRAME: {f_count:>10}'
+    gpu_string = f'{gpu_string}{f_space}FPS: {f_rate:>3d}'
+    gpu_string = f'{gpu_string}{f_space}MemPool Bytes       : {mempool_used_bytes:>10}\n'
+    return gpu_string
+
+def get_cpu_memory(mem_bytes, 
+                   f_count, 
+                   f_space,
+                   f_rate):
+    
+    frame_datetime = datetime.datetime.now()
+    hour = f"{frame_datetime.hour}".zfill(2)
+    minute = f"{frame_datetime.minute}".zfill(2)
+    second = f"{frame_datetime.second}".zfill(2)
+    microsecond = f"{frame_datetime.microsecond}".zfill(6)
+    frame_time_string = f'{hour}:{minute}:{second}.{microsecond}    '
+    mempool_used_bytes = round(float(mem_bytes)/1e6, ndigits=3)
+    gpu_string = f'{frame_time_string}FRAME: {f_count:>10}'
+    gpu_string = f'{gpu_string}{f_space}FPS: {f_rate:>3d}'
     gpu_string = f'{gpu_string}{f_space}MemPool Bytes       : {mempool_used_bytes:>10}\n'
     return gpu_string
 
@@ -35,14 +84,31 @@ def get_gpu_utilization():
     pass
 
 
+def get_gpu_information():
+    gpu_device_info = {}
+    try:
+        for device_n in range(cp.cuda.runtime.getDeviceCount()):
+            device_properties = cp.cuda.runtime.getDeviceProperties(device_n)
+            gpu_device_info[f'{device_n}'] = {'name': device_properties['name'].decode(),
+                                              'totalGlobalMem': device_properties['totalGlobalMem'] / 1.074e9}
+    except:
+        pass
+
 def main():
+
+    # INITIAL_BYTES = format_bytes(PROCESS.memory_info().rss)
+
+    # tracemalloc.start(4)
+    print("Taking initial snapshot...")
+    # snapshot = tracemalloc.take_snapshot()
+
     parser = argparse.ArgumentParser(
         prog='CT Viewer',
         description = 'A tool to examine multiple ct volumes.',
     )
 
     parser.add_argument('-debug', '--debug', help = 'Turn debug mode on.', action = 'store_true')
-    parser.add_argument('-gpu', '--gpu', nargs='?', type=int, action='store', const = 0, default = -1,
+    parser.add_argument('-gpu', '--gpu', nargs='?', type=int, action='store', const = 0, default = 0,
                         help='Enable GPU computation and select device number. Default device is 0.')
 
     args = parser.parse_args()
@@ -57,7 +123,7 @@ def main():
     if args.gpu > -1:
         if args.gpu >= cp.cuda.runtime.getDeviceCount():
             print(f'APP Message: Device {args.gpu = } not valid. Max device index is {cp.cuda.runtime.getDeviceCount() - 1}.')
-            print('APP Message: Running in CPU Mode.')
+            print(f'Running using GPU device {0}: ')
             
         else:
             setattr(G, 'GPU_MODE', True)
@@ -99,7 +165,8 @@ def main():
     hour = f'{app_datetime.hour}'.zfill(2)
     minute = f'{app_datetime.minute}'.zfill(2)
     second = f'{app_datetime.second}'.zfill(2)
-    app_datetime_string = f'{day}{month}{year}-{hour}{minute}{second}'
+    microsecond = f'{app_datetime.microsecond}'.zfill(6)
+    app_datetime_string = f'{day}{month}{year}-{hour}{minute}{second}.{microsecond}'
 
     gpu_log_path:Path = Path(G.LOG_DIR).joinpath(f'GPU_{app_datetime_string}.LOG')
     gpu_log_path.touch()
@@ -108,6 +175,14 @@ def main():
     initial_log_text = f'{initial_log_text}\n{"-"*50}\n'
     initial_log_text = f'{initial_log_text}'
     gpu_log_path.write_text(initial_log_text)
+
+    cpu_log_path:Path = Path(G.LOG_DIR).joinpath(f'CPU_{app_datetime_string}.LOG')
+    cpu_log_path.touch()
+    initial_log_text = f'GPU NAME: {gpu_name}\nCPU NAME: {cpu_name}'
+    initial_log_text = f'{initial_log_text}\nDATE-TIME: {app_datetime_string}'
+    initial_log_text = f'{initial_log_text}\n{"-"*50}\n'
+    initial_log_text = f'{initial_log_text}'
+    cpu_log_path.write_text(initial_log_text)
 
     G.initialize_colormaps()
 
@@ -143,7 +218,7 @@ def main():
                         height = G.CONFIG_DICT['app_settings']['app_height'], 
                         x_pos = 0, 
                         y_pos = 0,
-                        vsync = True)
+                        vsync = False)
     
     dpg.setup_dearpygui()
     dpg.show_viewport()
@@ -175,45 +250,77 @@ def main():
         return 0
     
     else:
-        # try:
-        #     dpg.start_dearpygui()
         frame_count:int = 0
         frame_space = " "*10
-        with open(gpu_log_path, mode = 'a') as gpu_log:
-            try:
-                while dpg.is_dearpygui_running():
-                    if frame_count%60 == 0:
-                        print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count, frame_space), 
-                              file = gpu_log, 
-                              flush = True, 
-                              end = '')
-                    dpg.render_dearpygui_frame()
-                    frame_count += 1
-                    
+        start_time = datetime.datetime.now()
+        frame_rate = 0
+        try:
+            gpu_log = open(gpu_log_path, mode = 'a')
+            # cpu_log = open(cpu_log_path, mode = 'a')
+            while dpg.is_dearpygui_running():
+                time.sleep(_MAXFRAMERATE_)
+                if frame_count%60 == 0:
+                    FRAME_BYTES = format_bytes(PROCESS.memory_info().rss)
+                    # current_mem, peak_mem = tracemalloc.get_traced_memory()
+                    # tracemalloc.reset_peak()
+                    # top_stats = tracemalloc.take_snapshot().compare_to(snapshot, 'lineno')
 
-            except:
-                with Exception as e:
-                    print(f'{e}')
-            
-            finally:
-                print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count, frame_space), 
-                              file = gpu_log, 
-                              flush = True, 
-                              end = '')
-                G.save_config('current')
-                ct_viewer._cleanup_()
-                dpg.destroy_context()
-                cp.get_default_memory_pool().free_all_blocks()
-                cp.get_default_pinned_memory_pool().free_all_blocks()
-                print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count + 1, frame_space), 
-                              file = gpu_log, 
-                              flush = True, 
-                              end = '')
-                print('-'*50, 
-                      file = gpu_log, 
-                      flush = True, 
-                      end = '')
+                    frame_rate = get_frame_rate(start_time, 60)
+                    print(get_gpu_memory(gpu_mempool.used_bytes(), 
+                                            frame_count, 
+                                            frame_space, 
+                                            frame_rate), 
+                            file = gpu_log, 
+                            flush = True, 
+                            end = '')
+                    
+                    # print(f"Process Memory (RSS): {FRAME_BYTES}\n----------------------------------------'",
+                    #       file = cpu_log,
+                    #       flush = True)
+                    # print(f'{current_mem = }, {peak_mem = }\n----------------------------------------',
+                    #       file = cpu_log,
+                    #       flush = True)
+                    
+                    # for stat in top_stats[:10]:
+                    #     print(stat,
+                    #           file = cpu_log,
+                    #           flush = True)
+                    # print('',
+                    #       file = cpu_log,
+                    #       flush = True)
+                    start_time = datetime.datetime.now()
+                    # snapshot = tracemalloc.take_snapshot()
+                
+                dpg.render_dearpygui_frame()
+                
+                frame_count += 1
+
+        except:
+            with Exception as e:
+                print(f'{e}')
         
+        finally:
+            print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count, frame_space, frame_rate), 
+                            file = gpu_log, 
+                            flush = True, 
+                            end = '')
+            G.save_config('current')
+            ct_viewer._cleanup_()
+            dpg.destroy_context()
+            cp.get_default_memory_pool().free_all_blocks()
+            cp.get_default_pinned_memory_pool().free_all_blocks()
+            print(get_gpu_memory(gpu_mempool.used_bytes(), frame_count + 1, frame_space, frame_rate), 
+                            file = gpu_log, 
+                            flush = True, 
+                            end = '')
+            print('-'*50, 
+                    file = gpu_log, 
+                    flush = True, 
+                    end = '')
+            
+            gpu_log.close()
+            # cpu_log.close()
+    
         return 0
     
 if __name__ == '__main__':

@@ -129,7 +129,7 @@ class G:
                             'default_colors': {'default_landmark_color': (113, 237, 235, 255),
                                                 'default_crosshair_color': (113, 237, 235, 125)},
                             'plot_settings': {'default_view': 'axial',
-                                                'default_cmap': 'Fire'},
+                                              'default_cmap': 'Fire'},
                             'texture_settings': {'texture_dimension': 700},
                             'landmark_settings': {'circle_radius': 2},
                             'gpu_settings':{'use_gpu': True, 
@@ -198,7 +198,7 @@ class G:
         
         print('GLOBALS Message: Configuration saved.')
 
-    LOG_DIR = USERHOME.joinpath('Logs')
+    LOG_DIR = CONFIG_DIR.joinpath('Logs')
     LOG_DIR.mkdir(exist_ok = True)
     # Dictionary for resetting everything to default when closing a volume or set of volumes. 
     GLOBAL_DEFAULTS = {'TEXTURE_DIM': min([CONFIG_DICT['app_settings']['main_texture_height'], 
@@ -340,7 +340,7 @@ class G:
                        
                        'min_intensity': 'min_intensity_slider', 
                        'max_intensity': 'max_intensity_slider', 
-                       'colormap': 'colormap_combo'}
+                       'colormap_name': 'colormap_combo'}
     
     
     OPTIONS_DICT = {'img_index_slider': {}, 
@@ -517,6 +517,10 @@ class G:
                     case tuple():
                         dpg.add_color_value(**registry_kwargs)
 
+    def add_colormap_combo_to_value_registry(value_registry_tag):
+        dpg.add_string_value(tag = 'colormap_combo_current_value',
+                             default_value = 'Fire', 
+                             parent = value_registry_tag)
 
     def add_input_options_to_value_registry(value_registry_tag):
         # Set up slider value registry. This is used with the mouse wheel which can otherwise extend past the 
@@ -535,6 +539,7 @@ class G:
                 dpg.add_int_value(tag = f'{slider_tag}_current_value', 
                                   default_value = 1*slider_value, 
                                   parent = value_registry_tag)
+                
             elif option_type == 'float':
                 dpg.add_float_value(tag = f'{slider_tag}_current_value', 
                                     default_value = 1.0*slider_value, 

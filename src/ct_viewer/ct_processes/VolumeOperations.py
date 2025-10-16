@@ -16,7 +16,8 @@ class VolumeOperations(object):
         self.texture_content        -> ndarray  Final texture content. Shape (texture_dim, texture_dim)
         
         The max_volume_size parameter determines the size, and therefore GPU memory footprint, of the interpolation volume. 
-        A volume of size (256, 860, 860) of float32's is ~760 MB, with the GPU using ~3 GB of VRAM between self.interpolation slab and self.volume slab.
+        A volume of size (512, 860, 860) of float32's is ~1150 MB. 
+        The GPU uses ~6 GB of VRAM between self.interpolation (4.5 GB) slab and self.volume (1.5 GB) slab.
         
         """
 
@@ -29,6 +30,7 @@ class VolumeOperations(object):
         self.interpolation_slab:np.ndarray|cp.ndarray = cp.full((3, max_volume_size, self.texture_dim, self.texture_dim), fill_value = cp.nan, dtype = cp.float32)
         self.volume_slab: np.ndarray|cp.ndarray = cp.full((max_volume_size, self.texture_dim, self.texture_dim), fill_value = cp.nan, dtype = cp.float32)
         self.texture_content:np.ndarray|cp.ndarray = cp.full((self.texture_dim, self.texture_dim), fill_value = cp.nan, dtype = cp.float32)
+        self.norm_array = cp.zeros((3, max_volume_size), dtype = cp.float32) # norm_vector * cp.linspace(start, stop, steps, dtype = cp.float32)
         
     
     def set_operation(self, 
@@ -43,7 +45,7 @@ class VolumeOperations(object):
         self.stop = stop
         self.operation = operation
         self.weighted = weighted
-    
+        
     def format_interpolation_slab(self,
                                   norm_vector: np.ndarray | cp.ndarray, # (3, 1)
                                   volume_view_plane: np.ndarray | cp.ndarray, # (3, N) Points
@@ -54,15 +56,15 @@ class VolumeOperations(object):
         
         """
         steps = stop - start + 1
-        norm_array = norm_vector * cp.linspace(start, stop, steps, dtype = cp.float32)
+        self.norm_array[:, :steps] = norm_vector * cp.linspace(start, stop, steps, dtype = cp.float32)
         self.interpolation_slab[:, :steps, :, :] = volume_view_plane.reshape((3, 1, self.texture_dim, self.texture_dim)).repeat(steps, axis = 1)
         # view_slab = volume_view_plane.reshape((3, 1, volume_view_plane.shape[1])).repeat(steps, axis = 1)
         self.interpolation_slab[:, :steps] = cp.moveaxis(cp.moveaxis(self.interpolation_slab[:, :steps], (0, 1, 2, 3), (2, 3, 0, 1)) 
-                                                         + norm_array, (2, 3, 0, 1), (0, 1, 2, 3))
+                                                         + self.norm_array[:, :steps], (2, 3, 0, 1), (0, 1, 2, 3))
         # del view_slab
-        del norm_array
-        cp.get_default_memory_pool().free_all_blocks()
-        cp.get_default_pinned_memory_pool().free_all_blocks()
+        # del norm_array
+        # cp.get_default_memory_pool().free_all_blocks()
+        # cp.get_default_pinned_memory_pool().free_all_blocks()
     
 
     def interpolate_volume(self, 
@@ -77,7 +79,7 @@ class VolumeOperations(object):
         """
         self.volume_slab.fill(cp.nan)
         
-        self.volume_slab[:steps] = ctvolume.interpolate(self.interpolation_slab[:, :steps], order = order)
+        self.volume_slab[:steps] = ctvolume.interpolate_volume(self.interpolation_slab[:, :steps], order = order)
 
     def get_operation_volume(self, 
                              ctvolume, 

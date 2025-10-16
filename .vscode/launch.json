@@ -10,13 +10,13 @@
             "type": "debugpy",
             "request": "launch",
             "windows":{
-                "program": "C:/Users/peter/Dropbox/Code/Python/medical_physics/ct_viewer/src/ct_viewer/ct_viewer.py",
+                "program": "C:/Users/peter/Dropbox/Code/Python/medical_physics/CTViewer/src/ct_viewer/ct_viewer.py",
                 "args": [
                     "-gpu=0"
                 ]
             },
             "linux": {
-                "program": "/home/pboyle/Dropbox/Code/Python/medical_physics/ct_viewer/src/ct_viewer/ct_viewer.py",
+                "program": "/home/pboyle/Dropbox/Code/Python/medical_physics/CTViewer/src/ct_viewer/ct_viewer.py",
                 "args": [
                     "-gpu=1"
                 ]

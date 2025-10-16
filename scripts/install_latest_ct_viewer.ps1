@@ -13,12 +13,12 @@ Write-Host "Updating ct_viewer module in the $active_environment environment."
 
 # Change to the directory containing the .whl files
 
-if (Test-Path "env:DROPBOX"){
-    Set-Location "$env:DROPBOX\Code\Python\medical_physics\ct_viewer\dist"
+if (Test-Path "$env:DROPBOX"){
+    Set-Location "$env:DROPBOX\Code\Python\medical_physics\CTViewer\dist"
 }
 
 else{
-    Set-Location "$env:USERPROFILE\Dropbox\Code\Python\medical_physics\ct_viewer\dist"
+    Set-Location "$env:USERPROFILE\Dropbox\Code\Python\medical_physics\CTViewer\dist"
 }
 
 # Find the latest .whl file
