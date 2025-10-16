@@ -22,8 +22,6 @@ micromamba install -y cupy cuda-version=$nvcc_version
 
 pip install dearpygui python-gdcm
 
-# Install ct_viewer
-
 cd /home/pboyle/Dropbox/Code/Python/medical_physics/CTViewer/dist/
 
 latest_whl_file="$(ls -t ./*.whl | head -n 1)"
