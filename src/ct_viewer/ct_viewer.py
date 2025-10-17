@@ -4,11 +4,6 @@ import datetime
 import time
 from pathlib import Path
 import platform
-import tracemalloc
-import os
-import psutil
-
-PROCESS = psutil.Process(os.getpid())
 
 try:
     from .ct_processes.Globals import *
@@ -34,16 +29,6 @@ def get_frame_rate(s_time,
         frames_per_second = 0
     return frames_per_second
 
-def format_bytes(size: int) -> str:
-    """Helper function to format bytes into KiB, MiB, etc."""
-    power = 1024
-    n = 2
-    power_labels = {0: '', 1: 'K', 2: 'M', 3: 'G', 4: 'T'}
-    # while size > power and n < len(power_labels) -1 :
-    #     size /= power
-    #     n += 1
-    size /= power**n
-    return f"{size:.3f} {power_labels[n]}iB"
 
 def get_gpu_memory(mempool_bytes, 
                    f_count, 
@@ -57,23 +42,6 @@ def get_gpu_memory(mempool_bytes,
     microsecond = f"{frame_datetime.microsecond}".zfill(6)
     frame_time_string = f'{hour}:{minute}:{second}.{microsecond}    '
     mempool_used_bytes = round(float(mempool_bytes)/1e6, ndigits=3)
-    gpu_string = f'{frame_time_string}FRAME: {f_count:>10}'
-    gpu_string = f'{gpu_string}{f_space}FPS: {f_rate:>3d}'
-    gpu_string = f'{gpu_string}{f_space}MemPool Bytes       : {mempool_used_bytes:>10}\n'
-    return gpu_string
-
-def get_cpu_memory(mem_bytes, 
-                   f_count, 
-                   f_space,
-                   f_rate):
-    
-    frame_datetime = datetime.datetime.now()
-    hour = f"{frame_datetime.hour}".zfill(2)
-    minute = f"{frame_datetime.minute}".zfill(2)
-    second = f"{frame_datetime.second}".zfill(2)
-    microsecond = f"{frame_datetime.microsecond}".zfill(6)
-    frame_time_string = f'{hour}:{minute}:{second}.{microsecond}    '
-    mempool_used_bytes = round(float(mem_bytes)/1e6, ndigits=3)
     gpu_string = f'{frame_time_string}FRAME: {f_count:>10}'
     gpu_string = f'{gpu_string}{f_space}FPS: {f_rate:>3d}'
     gpu_string = f'{gpu_string}{f_space}MemPool Bytes       : {mempool_used_bytes:>10}\n'
@@ -95,13 +63,6 @@ def get_gpu_information():
         pass
 
 def main():
-
-    # INITIAL_BYTES = format_bytes(PROCESS.memory_info().rss)
-
-    # tracemalloc.start(4)
-    print("Taking initial snapshot...")
-    # snapshot = tracemalloc.take_snapshot()
-
     parser = argparse.ArgumentParser(
         prog='CT Viewer',
         description = 'A tool to examine multiple ct volumes.',
@@ -176,14 +137,6 @@ def main():
     initial_log_text = f'{initial_log_text}'
     gpu_log_path.write_text(initial_log_text)
 
-    cpu_log_path:Path = Path(G.LOG_DIR).joinpath(f'CPU_{app_datetime_string}.LOG')
-    cpu_log_path.touch()
-    initial_log_text = f'GPU NAME: {gpu_name}\nCPU NAME: {cpu_name}'
-    initial_log_text = f'{initial_log_text}\nDATE-TIME: {app_datetime_string}'
-    initial_log_text = f'{initial_log_text}\n{"-"*50}\n'
-    initial_log_text = f'{initial_log_text}'
-    cpu_log_path.write_text(initial_log_text)
-
     G.initialize_colormaps()
 
     dpg.create_context()
@@ -256,14 +209,9 @@ def main():
         frame_rate = 0
         try:
             gpu_log = open(gpu_log_path, mode = 'a')
-            # cpu_log = open(cpu_log_path, mode = 'a')
             while dpg.is_dearpygui_running():
                 time.sleep(_MAXFRAMERATE_)
                 if frame_count%60 == 0:
-                    FRAME_BYTES = format_bytes(PROCESS.memory_info().rss)
-                    # current_mem, peak_mem = tracemalloc.get_traced_memory()
-                    # tracemalloc.reset_peak()
-                    # top_stats = tracemalloc.take_snapshot().compare_to(snapshot, 'lineno')
 
                     frame_rate = get_frame_rate(start_time, 60)
                     print(get_gpu_memory(gpu_mempool.used_bytes(), 
@@ -274,22 +222,7 @@ def main():
                             flush = True, 
                             end = '')
                     
-                    # print(f"Process Memory (RSS): {FRAME_BYTES}\n----------------------------------------'",
-                    #       file = cpu_log,
-                    #       flush = True)
-                    # print(f'{current_mem = }, {peak_mem = }\n----------------------------------------',
-                    #       file = cpu_log,
-                    #       flush = True)
-                    
-                    # for stat in top_stats[:10]:
-                    #     print(stat,
-                    #           file = cpu_log,
-                    #           flush = True)
-                    # print('',
-                    #       file = cpu_log,
-                    #       flush = True)
                     start_time = datetime.datetime.now()
-                    # snapshot = tracemalloc.take_snapshot()
                 
                 dpg.render_dearpygui_frame()
                 
@@ -319,7 +252,6 @@ def main():
                     end = '')
             
             gpu_log.close()
-            # cpu_log.close()
     
         return 0
     

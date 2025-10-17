@@ -1,14 +1,5 @@
 from .Globals import *
 
-# np.set_printoptions(
-#     formatter={
-#         'float': lambda x: (
-#                             f"{x:10.0f}" if abs(x) < 1e-4 else
-#                             f"{x:10,.0f}"
-#                             )
-#                 }
-#     )
-
 #########################################################
 
 # Initialize interp functions

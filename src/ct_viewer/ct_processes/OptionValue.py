@@ -2,10 +2,6 @@ from .Globals import *
 
 if G.GPU_MODE:
     cp.cuda.Device(G.DEVICE).use()
-
-class DummyValue(object):
-    def __init__(self):
-        pass
     
 mode_return_type = lambda x, y: x.astype(getattr(cp, y)) if G.GPU_MODE else lambda x, y: x.astype(getattr(np, y))
 mode_create_array = lambda x: cp.array(x) if G.GPU_MODE else lambda x: np.array(x)
@@ -163,58 +159,6 @@ class IntensityInfo(object):
         print(f'{self.colormap_reversed = }')
         print(f'{self.colormap_scale_tag = }')
         print(f'{self.colormap_scale_type = }')
-
-    def _cleanup_(self):
-        attrib_list = list(self.__dict__.keys())
-        while len(attrib_list) > 0:
-            attrib_name = attrib_list.pop()
-            try:
-                getattr(self, attrib_name)._cleanup_()
-            except:
-                pass
-            setattr(self, attrib_name, None)
-            delattr(self, attrib_name)
-
-
-class GeometryInfo(object):
-    def __init__(self, 
-                 default_geometry: list[float, float, float] = [1.0, 1.0, 1.0],
-                 default_limits: list[float, float] = [0.25, 10.0]):
-        
-        self.pixel_spacing_x = OptionValue(tag = G.OPTION_TAG_DICT['pixel_spacing_x'], 
-                                           default_value = 1.0*default_geometry[0], 
-                                           default_limits = default_limits)
-        self.pixel_spacing_y = OptionValue(tag = G.OPTION_TAG_DICT['pixel_spacing_y'], 
-                                           default_value = 1.0*default_geometry[1], 
-                                           default_limits = default_limits)
-        self.slice_thickness = OptionValue(tag = G.OPTION_TAG_DICT['slice_thickness'], 
-                                           default_value = 1.0*default_geometry[2], 
-                                           default_limits = default_limits)
-
-
-    def reset_geometry(self):
-        self.pixel_spacing_x.reset()
-        self.pixel_spacing_y.reset()
-        self.slice_thickness.reset()
-        
-
-    def update_geometry(self):
-        self.pixel_spacing_x.update_values(dpg.get_value(self.pixel_spacing_x.tag))
-        self.pixel_spacing_y.update_values(dpg.get_value(self.pixel_spacing_y.tag))
-        self.slice_thickness.update_values(dpg.get_value(self.slice_thickness.tag))
-
-    
-    def get_pixel_steps(self):
-        return [self.slice_thickness.current_value, self.pixel_spacing_y.current_value, self.pixel_spacing_x.current_value]
-
-
-    def __repr__(self):
-        return f'Volume Geometry: \n\tPixel Spacing  : ({self.pixel_spacing_x}, {self.pixel_spacing_y})\n\tSlice Thickness: {self.slice_thickness}'
-
-
-    def __call__(self):
-        return [self.slice_thickness.current_value, self.pixel_spacing_y.current_value, self.pixel_spacing_x.current_value]
-    
 
     def _cleanup_(self):
         attrib_list = list(self.__dict__.keys())
@@ -731,9 +675,6 @@ class OrientationInfo(object):
         print(f'{self.origin_vector.pretty_print(modifier = "current_value") = }')
         print(f'{self.origin_vector.pretty_print(modifier = "previous_value") = }')
         print(f'{self.origin_vector.pretty_print(modifier = "difference_value") = }')
-        print(f'{self.viewport_origin_vector.pretty_print(modifier = "current_value") = }')
-        print(f'{self.viewport_origin_vector.pretty_print(modifier = "previous_value") = }')
-        print(f'{self.viewport_origin_vector.pretty_print(modifier = "difference_value") = }')
         print(f'{self.norm_vector.pretty_print(modifier = "current_value") = }')
         print(f'{self.norm_vector.pretty_print(modifier = "previous_value") = }')
         print(f'{self.norm_vector.pretty_print(modifier = "difference_value") = }')
@@ -1242,6 +1183,8 @@ class OptionValue(object):
             attrib_key = attrib_list.pop()
             setattr(self, attrib_key, None)
             delattr(self, attrib_key)
+
+
 
 class AffineValue(object):
     def __init__(self,
