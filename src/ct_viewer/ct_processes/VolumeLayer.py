@@ -124,17 +124,17 @@ class VolumeLayer(object):
 
 
         self.Texture: Textures.Texture = Textures.Texture(self.name,
-                                                          self.CTVolume, 
+                                                        #   self.CTVolume, 
                                                           default_texture_drawlayers[0],
                                                           [self.Group.window_dict[list(self.Group.window_dict.keys())[0]]['height'], 
                                                            self.Group.window_dict[list(self.Group.window_dict.keys())[0]]['width']],
-                                                        pixel_start = [0, 0],
-                                                        pixel_end = [self.texture_dim, self.texture_dim])
+                                                          pixel_start = [0, 0],
+                                                          pixel_end = [self.texture_dim, self.texture_dim])
         
         ortho_start = round(-(1/3) * self.texture_dim)
         ortho_end = round((2/3) * self.texture_dim)
         self.TextureOrtho: Textures.Texture = Textures.Texture(self.name,
-                                                               self.CTVolume, 
+                                                            #    self.CTVolume, 
                                                                default_texture_drawlayers[1],
                                                                [self.Group.window_dict[list(self.Group.window_dict.keys())[1]]['height'], 
                                                                 self.Group.window_dict[list(self.Group.window_dict.keys())[1]]['width']],
@@ -238,7 +238,8 @@ class VolumeLayer(object):
 
     def set_current(self, state: bool):
         if state == False:
-            self.remove_texture_from_drawlayer()
+            self.hide_drawimage()
+            # self.remove_texture_from_drawlayer()
         self.current_volume = state
 
 
@@ -841,10 +842,10 @@ class VolumeLayer(object):
                                    drawlayers):
         
         self.add_texture_to_drawlayer(drawlayer = drawlayers[0],
-                                     Texture = self.Texture)
+                                      Texture = self.Texture)
         
         self.add_texture_to_drawlayer(drawlayer = drawlayers[1],
-                                     Texture = self.TextureOrtho)
+                                      Texture = self.TextureOrtho)
 
     def add_texture_to_drawlayer(self, 
                                 pixel_start:list[float|int, float|int] = [None, None], 
@@ -861,10 +862,10 @@ class VolumeLayer(object):
             pixel_end = [self.texture_dim, self.texture_dim]
         
         Texture.add_texture_to_drawlayer(pixel_start = pixel_start,
-                                             pixel_end = pixel_end,
-                                             uv_min = uv_min,
-                                             uv_max = uv_max,
-                                             drawlayer = drawlayer)
+                                         pixel_end = pixel_end,
+                                         uv_min = uv_min,
+                                         uv_max = uv_max,
+                                         drawlayer = drawlayer)
        
     def interpolate_view(self, 
                          out_array = None, 
@@ -1100,6 +1101,15 @@ class VolumeLayer(object):
 
     def hide_landmarks(self):
         self.Landmarks.hide_landmarks()
+
+    def show_drawimage(self):
+        dpg.show_item(self.Texture.drawimage_tag)
+        dpg.show_item(self.TextureOrtho.drawimage_tag)
+
+
+    def hide_drawimage(self):
+        dpg.hide_item(self.Texture.drawimage_tag)
+        dpg.hide_item(self.TextureOrtho.drawimage_tag)
 
     def _cleanup_(self):
         attrib_list = list(self.__dict__.keys())
@@ -1600,12 +1610,13 @@ class VolumeLayerGroups(object):
 
     def change_current_group_and_volume(self, 
                                         img_index: int = 0):
-        self.get_current_volume().remove_texture_from_drawlayer()
+        self.get_current_volume().hide_drawimage()
         self.get_current_volume().hide_landmarks()
         self.set_current_volume_by_index(0, img_index)
 
         self.set_control_options(changing_volumes = True)
         self.get_current_volume().show_landmarks()
+        self.get_current_volume().show_drawimage()
 
         dpg.set_item_label(f'orientation_group_layer_control_button', self.get_current_volume().orientation_control)
         dpg.set_item_label(f'intensity_group_layer_control_button', self.get_current_volume().intensity_control)
@@ -1768,8 +1779,10 @@ class VolumeLayerGroups(object):
         if ctvolume.name not in self.group_dict[group_name]:
             self.get_group_by_name(group_name).add_volume(ctvolume,
                                                           **kwargs)
-        
             self.group_dict[group_name].append(ctvolume.name)
+
+            self.get_last_volume().add_textures_to_drawlayers(self.texture_drawlayer_tags)
+            self.get_last_volume().hide_drawimage()
         
     def add_volumes_to_group(self, group_name, list_of_ctvolumes, **kwargs):
         for ctvolume in list_of_ctvolumes:

@@ -1444,7 +1444,8 @@ class DataLoader(object):
             if VolumeLayerGroups.get_group_by_index(0).n_volumes > 0:
                 if not VolumeLayerGroups.active:
                     VolumeLayerGroups.set_current_volume_by_index(0, 0)
-                    VolumeLayerGroups.get_current_volume().add_textures_to_drawlayers(VolumeLayerGroups.texture_drawlayer_tags)
+                    VolumeLayerGroups.get_current_volume().show_drawimage()
+                    # VolumeLayerGroups.get_current_volume().add_textures_to_drawlayers(VolumeLayerGroups.texture_drawlayer_tags)
                     # VolumeLayerGroups.get_current_volume().add_textures_to_drawlayers(drawlayer=DrawWindow.return_texture_drawlayer_tag(window_tag))
                     VolumeLayerGroups.get_current_volume().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
                     VolumeLayerGroups.get_current_group().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
@@ -1457,7 +1458,7 @@ class DataLoader(object):
             G.N_VOLUMES = len(VolumeLayerGroups.get_current_group().volume_names)
             G.OPTIONS_DICT['img_index_slider']['max_value'] = VolumeLayerGroups.get_current_group().n_volumes
             dpg.set_item_user_data(G.OPTIONS_DICT['img_index_slider']['slider_tag'],
-                                VolumeLayerGroups.current_group_and_volume)
+                                   VolumeLayerGroups.current_group_and_volume)
             
             dpg.configure_item(G.OPTIONS_DICT['img_index_slider']['slider_tag'], 
                                 max_value = VolumeLayerGroups.get_group_by_name('AllVolumes').n_volumes)
@@ -1518,17 +1519,44 @@ class DataLoader(object):
 
             load_message = f'Loading {file_name}\n\tFile ID: {file_id}'
             dpg.set_value(G.LOADING_WINDOW_TEXT, load_message)
+            for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
+                VolumeLayerGroups.add_volume_to_group('AllVolumes',
+                                                    self.load_type_dict[file_type](files_to_be_loaded_dict, 
+                                                                                   file_id, 
+                                                                                   volume_name,
+                                                                                   file_name = file_name))
 
-            VolumeLayerGroups.add_volume_to_group('AllVolumes',
-                                                  self.load_type_dict[file_type](files_to_be_loaded_dict, 
-                                                                                 file_id, 
-                                                                                 file_name = file_name))
+    def load_mat_file(self, files_to_be_loaded_dict, file_id, volume_name, file_name = '') -> CTVolume.CTVolume:
+        # for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
+        if file_name == '':
+            file_name = files_to_be_loaded_dict[file_id]['Attributes']['file_name']
+        print(f'FileDialog Message: MatFile Load: {file_name}|{volume_name}')
+        if volume_name[0] == '/':
+            volume_name = volume_name[1:]
+        if len(files_to_be_loaded_dict[file_id]['volumes']) == 1:
+            display_name = f'{file_name}'
+        else:
+            display_name = f'{file_name}/{volume_name}'
 
-    def load_mat_file(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
-        for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
+        return CTVolume.CTVolume(display_name, 
+                                    files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
+                                    loadmat(files_to_be_loaded_dict[file_id]['Attributes']['file_path'], 
+                                    appendmat = False, 
+                                    variable_names = volume_name, 
+                                    squeeze_me = True)[volume_name],
+                                    affine = np.eye(4, dtype = np.float32),
+                                    dim_order = (0, 1, 2))
+        
+
+    def load_hdf5_file(self, files_to_be_loaded_dict, file_id, volume_name, file_name = '') -> CTVolume.CTVolume:
+        with h5py.File(files_to_be_loaded_dict[file_id]['Attributes']['file_path'], mode = 'r', swmr=True, track_order=True) as h5_file:
+            # for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
             if file_name == '':
                 file_name = files_to_be_loaded_dict[file_id]['Attributes']['file_name']
-            print(f'FileDialog Message: MatFile Load: {file_name}|{volume_name}')
+            print(f'FileDialog Message: HDF5 Load: {file_name}|{volume_name}')
+            affine = np.eye(4, 4)
+            if 'affine' in files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes'].keys():
+                affine = files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes']['affine']
             if volume_name[0] == '/':
                 volume_name = volume_name[1:]
             if len(files_to_be_loaded_dict[file_id]['volumes']) == 1:
@@ -1537,84 +1565,58 @@ class DataLoader(object):
                 display_name = f'{file_name}/{volume_name}'
 
             return CTVolume.CTVolume(display_name, 
-                                     files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
-                                     loadmat(files_to_be_loaded_dict[file_id]['Attributes']['file_path'], 
-                                     appendmat = False, 
-                                     variable_names = volume_name, 
-                                     squeeze_me = True)[volume_name],
-                                     affine = np.eye(4, dtype = np.float32),
-                                     dim_order = (0, 1, 2))
-        
-
-    def load_hdf5_file(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
-        with h5py.File(files_to_be_loaded_dict[file_id]['Attributes']['file_path'], mode = 'r', swmr=True, track_order=True) as h5_file:
-            for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
-                if file_name == '':
-                    file_name = files_to_be_loaded_dict[file_id]['Attributes']['file_name']
-                print(f'FileDialog Message: HDF5 Load: {file_name}|{volume_name}')
-                affine = np.eye(4, 4)
-                if 'affine' in files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes'].keys():
-                    affine = files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes']['affine']
-                if volume_name[0] == '/':
-                    volume_name = volume_name[1:]
-                if len(files_to_be_loaded_dict[file_id]['volumes']) == 1:
-                    display_name = f'{file_name}'
-                else:
-                    display_name = f'{file_name}/{volume_name}'
-
-                return CTVolume.CTVolume(display_name, 
-                                         files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
-                                         h5_file[volume_name][()],
-                                         affine = affine,
-                                         dim_order = (0, 1, 2))
+                                        files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
+                                        h5_file[volume_name][()],
+                                        affine = affine,
+                                        dim_order = (0, 1, 2))
                 
 
-    def load_dicom_files(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
-        for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
+    def load_dicom_files(self, files_to_be_loaded_dict, file_id, volume_name, file_name = '') -> CTVolume.CTVolume:
+        # for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
             
-            if file_name == '':
-                file_name = files_to_be_loaded_dict[file_id]['Attributes']['file_name']
-            print(f'DataLoader Message: DICOM Load: {file_name}|{volume_name}')
-            file_path = files_to_be_loaded_dict[file_id]['Attributes']['file_path']
-            affine = files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes']['affine']
-            dicom_files = files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes']['dicom_files']
-            print(f'DataLoader Message: File {file_name} Affine:\n\t{affine}')
-            if len(files_to_be_loaded_dict[file_id]['volumes']) == 1:
-                display_name = f'{file_name}'
-            else:
-                display_name = f'{file_name}/{volume_name}'
+        if file_name == '':
+            file_name = files_to_be_loaded_dict[file_id]['Attributes']['file_name']
+        print(f'DataLoader Message: DICOM Load: {file_name}|{volume_name}')
+        file_path = files_to_be_loaded_dict[file_id]['Attributes']['file_path']
+        affine = files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes']['affine']
+        dicom_files = files_to_be_loaded_dict[file_id]['volumes'][volume_name]['Attributes']['dicom_files']
+        print(f'DataLoader Message: File {file_name} Affine:\n\t{affine}')
+        if len(files_to_be_loaded_dict[file_id]['volumes']) == 1:
+            display_name = f'{file_name}'
+        else:
+            display_name = f'{file_name}/{volume_name}'
 
-            return CTVolume.CTVolume(display_name, 
-                                     file_path,
-                                     self.read_dicom_pixel_dir(file_path, dicom_files = dicom_files),
-                                     affine = affine,
-                                     dim_order = (0, 1, 2))
+        return CTVolume.CTVolume(display_name, 
+                                    file_path,
+                                    self.read_dicom_pixel_dir(file_path, dicom_files = dicom_files),
+                                    affine = affine,
+                                    dim_order = (0, 1, 2))
         
 
-    def load_nifti_file(self, files_to_be_loaded_dict, file_id, file_name = '') -> CTVolume.CTVolume:
+    def load_nifti_file(self, files_to_be_loaded_dict, file_id, volume_name, file_name = '') -> CTVolume.CTVolume:
         """
         Nifti files store their data using RAS+, in contrast to DICOMs LPS+. 
         Additionally, Nifti's use IJK storage, rather than XYZ. That means the rows and columns are swapped. 
         We load DICOMS as ZXY, though, so we need to move the axes around and flip them. 
         """
-        for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
-            if file_name == '':
-                file_name = files_to_be_loaded_dict[file_id]['Attributes']['file_name']
-            print(f'FileDialog Message: Nifti Load: {file_name}|{volume_name}')
-            nib_file = nib.load(files_to_be_loaded_dict[file_id]['Attributes']['file_path'])
-            if volume_name[0] == '/':
-                volume_name = volume_name[1:]
+        # for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
+        if file_name == '':
+            file_name = files_to_be_loaded_dict[file_id]['Attributes']['file_name']
+        print(f'FileDialog Message: Nifti Load: {file_name}|{volume_name}')
+        nib_file = nib.load(files_to_be_loaded_dict[file_id]['Attributes']['file_path'])
+        if volume_name[0] == '/':
+            volume_name = volume_name[1:]
 
-            if len(files_to_be_loaded_dict[file_id]['volumes']) == 1:
-                display_name = f'{file_name}'
-            else:
-                display_name = f'{file_name}/{volume_name}'
-            return CTVolume.CTVolume(display_name, 
-                                     files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
-                                     np.array(nib_file.get_fdata(), dtype = np.float32),
-                                     affine = nib_file.affine,
-                                     dim_order = (0, 1, 2))
-                                     # dim_order = (2, 1, 0))
+        if len(files_to_be_loaded_dict[file_id]['volumes']) == 1:
+            display_name = f'{file_name}'
+        else:
+            display_name = f'{file_name}/{volume_name}'
+        return CTVolume.CTVolume(display_name, 
+                                    files_to_be_loaded_dict[file_id]['Attributes']['file_path'],
+                                    np.array(nib_file.get_fdata(), dtype = np.float32),
+                                    affine = nib_file.affine,
+                                    dim_order = (0, 1, 2))
+                                    # dim_order = (2, 1, 0))
 
 
     # Dicom Utilities

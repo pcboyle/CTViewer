@@ -16,7 +16,7 @@ class Texture(object):
 
     def __init__(self, 
                  volume_name: str, 
-                 ct_volume: CTVolume.CTVolume, 
+                #  ct_volume: CTVolume.CTVolume, 
                  drawlayer_tag: str,
                  drawlayer_shape: list[int|float],
                  pixel_start: list[int|float] = [0.0, 0.0],
@@ -28,7 +28,7 @@ class Texture(object):
             print(f'Textures Message: Using CUDA device {G.DEVICE}.')
 
         self.name = create_tag(f'{volume_name}', 'Texture', '')
-        self.ct_volume = ct_volume
+        # self.ct_volume = ct_volume
         self.texture_dim = G.TEXTURE_DIM # ct_volume.texture_dim
         self.shape = [self.texture_dim, self.texture_dim]
         self.texture_content:np.ndarray | cp.ndarray = Texture.mode_function(np.full)(self.shape, Texture.mode_value(np.nan), dtype = np.float32)
@@ -47,9 +47,9 @@ class Texture(object):
         self.colormap_min = 1.0 * self.min_value
         self.colormap_max = 1.0 * self.max_value
         self.colormap_scale_tag: str = 'COLORMAP_SCALE_NOT_INITIALIZED'
-        self.texture_tag = create_tag('Textures', 'Texture', ct_volume.name, suffix = tag_suffix)
+        self.texture_tag = create_tag('Textures', 'Texture', volume_name, suffix = tag_suffix)
         self.drawlayer_tag = drawlayer_tag
-        self.drawimage_tag = create_tag('Textures', 'DrawImage', ct_volume.name, suffix = tag_suffix)
+        self.drawimage_tag = create_tag('Textures', 'DrawImage', volume_name, suffix = tag_suffix)
         self.drawlayer_shape = drawlayer_shape
 
         if instantiate_texture:
@@ -308,49 +308,13 @@ class Texture(object):
                                  uv_max = uv_max,
                                  drawlayer = drawlayer)
 
-    # def update_texture(self,
-    #                    colormap: list[RegularGridInterpolator] = None,
-    #                    colormap_scale_type: str = None,
-    #                    colormap_scale_tag: str = None, 
-    #                    x_shift: float = 0.0,
-    #                    y_shift: float = 0.0,
-    #                    pixel_start: list[float|int, float|int] = [None, None], 
-    #                    pixel_end: list[float|int, float|int] = [None, None], 
-    #                    uv_min: list[float|int, float|int] = [0, 0],
-    #                    uv_max: list[float|int, float|int] = [1, 1],
-    #                    drawlayer: str = '',
-    #                    loading_landmarks:bool = False):
-    #     # self.texture_content has been filled with the 
-    #     # interpolated value at this point. 
-    #     # Now we do our windowing and assigning. 
-    #     self.set_colormap_info(colormap = colormap, 
-    #                            colormap_scale_type = colormap_scale_type,
-    #                            colormap_scale_tag = colormap_scale_tag)
-    #     self.window_and_normalize(colormap_scale_type = colormap_scale_type)
-    #     self.assign_texture(colormap = colormap)
-    #     self.delete_texture()
-    #     self.create_static_texture()
-    #     self.update_draw_image(x_shift = x_shift, 
-    #                            y_shift = y_shift)
-    #     self.add_texture_to_drawlayer(pixel_start = pixel_start,
-    #                                  pixel_end = pixel_end,
-    #                                  uv_min = uv_min,
-    #                                  uv_max = uv_max,
-    #                                  drawlayer = drawlayer)
 
     def update_draw_image(self, 
                           x_shift:float = 0.0,
                           y_shift:float = 0.0):
-        
-        # if x_shift == None:
-        #     x_shift = dpg.get_value(G.ORIGIN_X_SLIDER)
-
-        # if y_shift == None: 
-        #     y_shift = dpg.get_value(G.ORIGIN_Y_SLIDER)
 
         self.x_shift = 1.0*x_shift
         self.y_shift = 1.0*y_shift
-        # print(f'Texture Message: update_draw_image(): {self.x_shift = :<5}, {self.y_shift = :<5}, {self.drawlayer_tag = }')
 
     def delete_drawn_texture(self):
         print(f'Textures Message: Deleting {self.drawimage_tag}')
@@ -394,9 +358,6 @@ class Texture(object):
         pmin = [pixel_start[0] - self.x_shift, pixel_start[1] + self.y_shift]
         pmax = [pixel_end[0] - self.x_shift, pixel_end[1] + self.y_shift]
 
-        # pmin = [pixel_start[0] + 0.0, pixel_start[1] + 0.0]
-        # pmax = [pixel_end[0] + 0.0, pixel_end[1] + 0.0]
-
         uv_min = self.uv_min if type(uv_min) == type(None) else uv_min
         uv_max = self.uv_max if type(uv_max) == type(None) else uv_max
         
@@ -429,9 +390,6 @@ class Texture(object):
         pmin = [pixel_start[0] - self.x_shift, pixel_start[1] + self.y_shift]
         pmax = [pixel_end[0] - self.x_shift, pixel_end[1] + self.y_shift]
 
-        # pmin = [pixel_start[0] + 0.0, pixel_start[1] + 0.0]
-        # pmax = [pixel_end[0] + 0.0, pixel_end[1] + 0.0]
-
         uv_min = self.uv_min if type(uv_min) == type(None) else uv_min
         uv_max = self.uv_max if type(uv_max) == type(None) else uv_max
 
@@ -443,6 +401,7 @@ class Texture(object):
                        uv_max = uv_max, 
                        parent = self.drawlayer_tag,
                        user_data = [self.x_shift, self.y_shift])
+        
         
     
     def change_zoom_level(self, sender, app_data):
