@@ -344,7 +344,7 @@ class OptionsPanel:
 
                     dpg.add_checkbox(label = 'Rescale', 
                                      tag = 'rescale_colormap_checkbox', 
-                                     callback = self.update_volume)
+                                     callback = self.rescale_volume)
                     self.tag_list.append(dpg.last_item())
                     self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                 
@@ -514,8 +514,10 @@ class OptionsPanel:
                      InformationBox: InformationBox.InformationBox):
         self.InformationBox = InformationBox
 
+
     def set_image_tools(self, ImageTools: ImageTools.ImageTools):
         self.ImageTools = ImageTools
+
 
     def set_volume_and_draw_objects(self,
                                     VolumeLayerGroups: VolumeLayer.VolumeLayerGroups,
@@ -682,6 +684,12 @@ class OptionsPanel:
                      'mouse_info_text_tag': self.DrawWindow.return_mouse_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0]),
                      'crosshair_info_text_tag': self.DrawWindow.return_crosshair_pos_texture_info_text_tag(self.DrawWindow.get_window_tags()[0])}
         return text_info
+    
+    def rescale_volume(self, sender, app_data, user_data):
+
+        self.VolumeLayerGroups.rescale_volume(app_data)
+
+        self.update_volume('Rescale Volume', None, None)
     
 
     def add_landmark(self, sender, app_data, user_data):

@@ -6,3 +6,7 @@ src/ct_viewer.egg-info/
 src/ct_viewer/__pycache__/
 
 src/ct_viewer/ct_processes/__pycache__/
+
+src/CTViewer_Research.egg-info/
+
+src/CTViewer.egg-info/

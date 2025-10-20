@@ -718,19 +718,16 @@ class VolumeLayer(object):
             self.Texture.set_texture_value(operation_instance.texture_content)
             self.interpolate_texture(self.TextureOrtho.texture_content, 
                                      self.get_orientation().view_plane_ortho.get_voxel_view(),
-                                     dpg.get_value('interpolation_combo_box'),
-                                     rescale = colormap_rescale)
+                                     dpg.get_value('interpolation_combo_box'))
 
         else:
             self.interpolate_texture(self.Texture.texture_content, 
                                      self.get_orientation().view_plane.get_voxel_view(),
-                                     dpg.get_value('interpolation_combo_box'),
-                                     rescale = colormap_rescale)
+                                     dpg.get_value('interpolation_combo_box'))
             
             self.interpolate_texture(self.TextureOrtho.texture_content, 
                                      self.get_orientation().view_plane_ortho.get_voxel_view(),
-                                     dpg.get_value('interpolation_combo_box'),
-                                     rescale = colormap_rescale)
+                                     dpg.get_value('interpolation_combo_box'))
 
         self.Texture.update_texture(colormap = colormap,
                                     colormap_scale_type = colormap_scale_type,
@@ -817,7 +814,6 @@ class VolumeLayer(object):
         if G.GPU_MODE:
             self.interpolate_view(out_array = texture_content, 
                                   view_plane = view_plane,
-                                  rescale = rescale,
                                   interpolation_method = interpolation_method)
             
         else:
@@ -871,7 +867,6 @@ class VolumeLayer(object):
                          out_array = None, 
                          out_mask = None, 
                          view_plane = None, 
-                         rescale = False, 
                          interpolation_method: str = dpg.get_value('interpolation_combo_box')):
         """
         
@@ -884,19 +879,16 @@ class VolumeLayer(object):
 
         if type(out_array) == type(None):
 
-            return self.CTVolume.interpolate_volume(view_plane, 
-                                                    rescale = float(rescale),
+            return self.CTVolume.interpolate_volume(view_plane,
                                                     order = order)
         
         else:
             if type(out_mask) == type(None):
-                out_array[:] = self.CTVolume.interpolate_volume(view_plane, 
-                                                                rescale = float(rescale),
+                out_array[:] = self.CTVolume.interpolate_volume(view_plane,
                                                                 order = order).reshape(out_array.shape)[:]
                 
             else:
-                out_array[out_mask] = self.CTVolume.interpolate_volume(view_plane, 
-                                                                       rescale = float(rescale),
+                out_array[out_mask] = self.CTVolume.interpolate_volume(view_plane,
                                                                        order = order).reshape(out_array.shape)[out_mask]
 
     def interpolate_mask(self, 
@@ -2112,6 +2104,10 @@ class VolumeLayerGroups(object):
 
     def set_inactive(self):
         self.active = False
+
+    
+    def rescale_volume(self, rescale_bool):
+        self.get_current_volume().CTVolume.rescale_volume(rescale_bool)
 
 
     def get_orientation_info(self):

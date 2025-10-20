@@ -245,6 +245,7 @@ class CTVolume(object):
                 mask_indices[-1] = False
 
         return CTVolume.mode_function(np.sort)(unique_values[mask_indices])
+    
 
     def initialize_image_coords(self):
         for dim, shape in enumerate(self.shape):
@@ -256,21 +257,26 @@ class CTVolume(object):
             self.trans_coords_min_max[dim, 1] = max_coord - 1
             self.trans_coord_grid_list.append(list(range(min_coord, max_coord)))
 
-    def interpolate_volume(self, coords, order = 1, rescale = 0.0, out_array = None):
+    def rescale_volume(self, rescale_bool: bool = False):
+        if rescale_bool:
+            self.volume -= self.volume_min
+        else:
+            self.volume += self.volume_min
+
+
+    def interpolate_volume(self, coords, order = 1, out_array = None):
         """
         Coords are in the shape of: 
 
             [3, xdim, ydim, zdim]
 
         """
-
-        print(f'CTVOLUME MESSAGE: {rescale * self.volume_min}, {rescale}, {self.volume_min}')
         
         if type(out_array) == type(None):
-            return ndi.map_coordinates(self.volume - (rescale * self.volume_min), coords, order = order, cval=cp.nan)
+            return ndi.map_coordinates(self.volume, coords, order = order, cval=cp.nan)
         
         else:
-            ndi.map_coordinates(self.volume - (rescale * self.volume_min), coords, order = order, output=out_array, cval=cp.nan)
+            ndi.map_coordinates(self.volume, coords, order = order, output=out_array, cval=cp.nan)
 
 
     def interpolate_mask(self, coords, order = 1, out_array = None):
