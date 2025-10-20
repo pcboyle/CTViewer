@@ -64,7 +64,8 @@ class VolumeLayer(object):
                                                     'pitch', 'yaw', 'roll', 
                                                     'pixel_spacing_x', 'pixel_spacing_y', 'slice_thickness']
         
-        self.intensity_control_list: list[str] = ['min_intensity', 'max_intensity', 'colormap_name']
+        self.intensity_control_list: list[str] = ['min_intensity', 'max_intensity', 'colormap_name', 
+                                                  'colormap_rescaled', 'colormap_scale_type', 'colormap_reversed']
         self.geometry_control_list: list[str] = ['pixel_spacing_x', 'pixel_spacing_y', 'slice_thickness']
         self.histogram_control_list: list[str] = ['min_value', 'max_value', 'step', 'scale']
         self.orientation_control: str = G.DEFAULT_GROUP_LAYER_CONTROL
@@ -107,11 +108,11 @@ class VolumeLayer(object):
         self.texture_center = G.TEXTURE_CENTER
 
         self.colormap: OptionValue.ColormapValue = self.Intensity.colormap
-        self.colormap_name: str = self.Intensity.colormap_name
+        self.colormap_name: OptionValue.StringValue = self.Intensity.colormap_name
         self.colormap_string: str = self.Intensity.get_colormap_string()
-        self.colormap_reversed: bool = self.Intensity.colormap_reversed
-        self.colormap_log: bool = self.Intensity.colormap_log
-        self.colormap_rescaled: bool = self.Intensity.colormap_rescaled
+        self.colormap_reversed: OptionValue.BoolValue = self.Intensity.colormap_reversed
+        self.colormap_log: OptionValue.BoolValue = self.Intensity.colormap_log
+        self.colormap_rescaled: OptionValue.BoolValue = self.Intensity.colormap_rescaled
 
         self.Landmarks:Landmarks.Landmarks = Landmarks.Landmarks(self.name,
                                                                  1.0 * self.CTVolume.physical_center,
@@ -162,7 +163,8 @@ class VolumeLayer(object):
         
         self.interpolate_texture(Texture.texture_content,
                                  ViewPlane.get_voxel_view(),
-                                 interpolation_method)
+                                 interpolation_method,
+                                 colormap_rescaled = False)
         Texture.window_and_normalize()
         Texture.update_draw_image()
         Texture.assign_texture(Intensity.colormap.current_value)
@@ -234,6 +236,10 @@ class VolumeLayer(object):
 
     def add_tag(self, tag_name, tag_value):
         setattr(self, tag_name, tag_value)
+
+
+    def rescale_volume(self, rescale_bool: bool = False):
+        self.CTVolume.rescale_volume(rescale_bool)
 
 
     def set_current(self, state: bool):
@@ -507,7 +513,7 @@ class VolumeLayer(object):
             # We do this so we can keep track to the limits associated with 
             # each image parameter. 
             if changing_volumes:
-                if control_option_name == 'colormap_name':
+                if control_option_name in ['colormap_name', 'colormap_rescaled', 'colormap_reversed', 'colormap_scale_type']:
                     dpg.configure_item(option_tag, 
                                        default_value = control_option.default_value)
                 else:
@@ -520,7 +526,7 @@ class VolumeLayer(object):
             dpg.set_value(f'{option_tag}_current_value', 
                           control_option.current_value)
             
-            if control_option_name != 'colormap_name':
+            if control_option_name not in ['colormap_name', 'colormap_rescaled', 'colormap_reversed', 'colormap_scale_type']:
                 dpg.set_value(f'{option_tag}_step_value',
                             control_option.step_value)
                 dpg.set_value(f'{option_tag}_step_fast_value',
@@ -698,7 +704,7 @@ class VolumeLayer(object):
         colormap = self.get_intensity_value('colormap', '')
         colormap_scale_tag = self.get_intensity_value('colormap_scale_tag', 'current_value')
         colormap_scale_type = self.get_intensity_value('colormap_scale_type', 'current_value')
-        colormap_rescale = self.get_intensity_value('colormap_rescaled', '')
+        colormap_rescaled = self.get_intensity_value('colormap_rescaled', 'current_value')
 
         uv_min = [0, 0]
         uv_max = [1, 1]
@@ -712,22 +718,26 @@ class VolumeLayer(object):
                 self.get_orientation().norm_vector.current_value,
                 self.get_orientation().view_plane.get_voxel_view(),
                 self.CTVolume,
+                rescaled = colormap_rescaled,
                 start = operation_instance.start,
                 stop = operation_instance.stop,
                 order = order_dict[dpg.get_value('interpolation_combo_box')])
             self.Texture.set_texture_value(operation_instance.texture_content)
             self.interpolate_texture(self.TextureOrtho.texture_content, 
                                      self.get_orientation().view_plane_ortho.get_voxel_view(),
-                                     dpg.get_value('interpolation_combo_box'))
+                                     dpg.get_value('interpolation_combo_box'), 
+                                     colormap_rescaled = colormap_rescaled)
 
         else:
             self.interpolate_texture(self.Texture.texture_content, 
                                      self.get_orientation().view_plane.get_voxel_view(),
-                                     dpg.get_value('interpolation_combo_box'))
+                                     dpg.get_value('interpolation_combo_box'), 
+                                     colormap_rescaled = colormap_rescaled)
             
             self.interpolate_texture(self.TextureOrtho.texture_content, 
                                      self.get_orientation().view_plane_ortho.get_voxel_view(),
-                                     dpg.get_value('interpolation_combo_box'))
+                                     dpg.get_value('interpolation_combo_box'), 
+                                     colormap_rescaled = colormap_rescaled)
 
         self.Texture.update_texture(colormap = colormap,
                                     colormap_scale_type = colormap_scale_type,
@@ -806,7 +816,7 @@ class VolumeLayer(object):
                             view_plane: np.ndarray | cp.ndarray,
                             interpolation_method: str,
                             fill_nan: bool = True,
-                            rescale: bool = False):
+                            colormap_rescaled: bool = False):
         
         if fill_nan:
             texture_content.fill(VolumeLayer.mode_value(cp.nan))
@@ -814,7 +824,8 @@ class VolumeLayer(object):
         if G.GPU_MODE:
             self.interpolate_view(out_array = texture_content, 
                                   view_plane = view_plane,
-                                  interpolation_method = interpolation_method)
+                                  interpolation_method = interpolation_method,
+                                  colormap_rescaled=colormap_rescaled)
             
         else:
             print('Must use GPU!')
@@ -867,6 +878,7 @@ class VolumeLayer(object):
                          out_array = None, 
                          out_mask = None, 
                          view_plane = None, 
+                         colormap_rescaled: bool = False,
                          interpolation_method: str = dpg.get_value('interpolation_combo_box')):
         """
         
@@ -880,15 +892,18 @@ class VolumeLayer(object):
         if type(out_array) == type(None):
 
             return self.CTVolume.interpolate_volume(view_plane,
+                                                    rescale = float(colormap_rescaled),
                                                     order = order)
         
         else:
             if type(out_mask) == type(None):
                 out_array[:] = self.CTVolume.interpolate_volume(view_plane,
+                                                                rescale = float(colormap_rescaled),
                                                                 order = order).reshape(out_array.shape)[:]
                 
             else:
                 out_array[out_mask] = self.CTVolume.interpolate_volume(view_plane,
+                                                                       rescale = float(colormap_rescaled),
                                                                        order = order).reshape(out_array.shape)[out_mask]
 
     def interpolate_mask(self, 
@@ -967,8 +982,9 @@ class VolumeLayer(object):
         else:
             return getattr(value_object, f'{modifier}')
     
-    def get_intensity_value(self, value: str, 
-                            modifier:str, 
+    def get_intensity_value(self, 
+                            value: str, 
+                            modifier: str, 
                             check_control = True):
         """
         value:
@@ -1176,7 +1192,8 @@ class VolumeLayerGroup(object):
         self.orientation_control_list: list[str] = ['origin_x', 'origin_y', 'origin_z', 'norm', 
                                                     'pitch', 'yaw', 'roll', 
                                                     'pixel_spacing_x', 'pixel_spacing_y', 'slice_thickness']
-        self.intensity_control_list:list[str] = ['min_intensity', 'max_intensity', 'colormap_name']
+        self.intensity_control_list:list[str] = ['min_intensity', 'max_intensity', 'colormap_name', 
+                                                 'colormap_reversed', 'colormap_scale_type', 'colormap_rescaled']
         self.histogram_control_list:list[str] = ['min_value', 'max_value', 'step', 'scale']
         self.current_volume: VolumeLayer = None
         self.volume_reference_dict: dict = {}
@@ -1613,9 +1630,16 @@ class VolumeLayerGroups(object):
         dpg.set_item_label(f'orientation_group_layer_control_button', self.get_current_volume().orientation_control)
         dpg.set_item_label(f'intensity_group_layer_control_button', self.get_current_volume().intensity_control)
         dpg.set_value('colormap_combo_current_value', self.get_current_volume().get_intensity().colormap_name.current_value)
-        dpg.set_value('reverse_colormap_checkbox', self.get_current_volume().get_intensity().colormap_reversed)
-        dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {self.get_current_volume().name}')
+        dpg.set_value('colormap_rescaled_current_value', self.get_current_volume().get_intensity().colormap_rescaled.current_value)
+        dpg.set_value('colormap_scale_type_current_value', self.get_current_volume().get_intensity().colormap_scale_type.current_value)
+        dpg.set_value('colormap_reversed_current_value', self.get_current_volume().get_intensity().colormap_reversed.current_value)
 
+        # dpg.configure_item('colormap_combo_current_value', self.get_current_volume().get_intensity().colormap_name.current_value)
+        # dpg.configure_item('colormap_rescaled', self.get_current_volume().get_intensity().colormap_rescaled.current_value)
+        # dpg.configure_item('colormap_scale_type', self.get_current_volume().get_intensity().colormap_scale_type.current_value)
+        # dpg.configure_item('colormap_reversed', self.get_current_volume().get_intensity().colormap_reversed.current_value)
+
+        dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {self.get_current_volume().name}')
 
     def update_frame_of_reference(self,
                                   orientation_control: str = 'Group',
@@ -2107,7 +2131,7 @@ class VolumeLayerGroups(object):
 
     
     def rescale_volume(self, rescale_bool):
-        self.get_current_volume().CTVolume.rescale_volume(rescale_bool)
+        self.get_current_volume().rescale_volume(rescale_bool)
 
 
     def get_orientation_info(self):

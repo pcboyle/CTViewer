@@ -321,13 +321,15 @@ class OptionsPanel:
                                   callback = self.update_volume, 
                                   default_value = 'Fire',
                                   tag = 'colormap_combo')
+                    dpg.set_value('colormap_combo', 'Fire')
                     self.tag_list.append(dpg.last_item())
                     self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
 
                     dpg.add_checkbox(label = 'Reverse', 
-                                     tag = 'reverse_colormap_checkbox', 
+                                     tag = 'colormap_reversed', 
+                                     source = 'colormap_reversed_current_value',
                                      callback = self.update_volume)
-                    dpg.set_value('colormap_combo', 'Fire')
+                    dpg.set_value('colormap_reversed', False)
                     
                     self.tag_list.append(dpg.last_item())
                     self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
@@ -338,13 +340,18 @@ class OptionsPanel:
                                   width = 225,
                                   callback = self.update_volume, 
                                   default_value = 'Linear',
-                                  tag = 'colormap_scale_combo')
+                                  source = 'colormap_scale_type_current_value',
+                                  tag = 'colormap_scale_type')
+                    dpg.set_value('colormap_scale_type', 'Linear')
                     self.tag_list.append(dpg.last_item())
                     self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
 
                     dpg.add_checkbox(label = 'Rescale', 
-                                     tag = 'rescale_colormap_checkbox', 
-                                     callback = self.rescale_volume)
+                                     tag = 'colormap_rescaled', 
+                                     default_value = False,
+                                     source = 'colormap_rescaled_current_value',
+                                     callback = self.update_volume)
+                    dpg.set_value('colormap_rescaled', False)
                     self.tag_list.append(dpg.last_item())
                     self.reset_list.append([dpg.last_item(), dpg.get_value(dpg.last_item())])
                 
@@ -667,13 +674,13 @@ class OptionsPanel:
     
     def get_intensity_info(self):
         intensity_info = {'colormap_name': dpg.get_value('colormap_combo'),
-                          'colormap_reversed': dpg.get_value('reverse_colormap_checkbox'),
-                          'colormap_log': dpg.get_value('colormap_scale_combo') == 'Log',
+                          'colormap_reversed': dpg.get_value('colormap_reversed'),
+                          'colormap_log': dpg.get_value('colormap_scale_type') == 'Log',
                           'min_intensity': dpg.get_value('min_intensity_slider'),
                           'max_intensity': dpg.get_value('max_intensity_slider'),
                           'window_size': 1.0,
-                          'colormap_rescaled': dpg.get_value('rescale_colormap_checkbox'),
-                          'colormap_scale_type': dpg.get_value('colormap_scale_combo'),
+                          'colormap_rescaled': dpg.get_value('colormap_rescaled'),
+                          'colormap_scale_type': dpg.get_value('colormap_scale_type'),
                           'colormap_scale_tag': self.DrawWindow.return_colormap_tag(self.DrawWindow.get_window_tags()[0])}
         
         return intensity_info
@@ -688,7 +695,6 @@ class OptionsPanel:
     def rescale_volume(self, sender, app_data, user_data):
 
         self.VolumeLayerGroups.rescale_volume(app_data)
-
         self.update_volume('Rescale Volume', None, None)
     
 

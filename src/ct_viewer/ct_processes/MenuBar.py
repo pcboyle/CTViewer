@@ -199,6 +199,7 @@ class MenuBar:
     def open_value_registry(self, sender, app_data, user_data):
 
         if user_data['registry_hidden']:
+            self.refresh_value_registry()
             dpg.show_item('MenuBar_ValueRegistryWindow')
             return
         
@@ -206,6 +207,7 @@ class MenuBar:
             user_data['registry_hidden'] = True
 
         value_label_tags = []
+        value_tag_label_length = 0
 
         with dpg.window(label='CTViewer Value Registry', 
                         tag = 'MenuBar_ValueRegistryWindow',
@@ -214,13 +216,10 @@ class MenuBar:
                         horizontal_scrollbar = True,
                         autosize = True,
                         show = True):
-            
-            value_tag_label_length = 0
 
             for dpg_index in dpg.get_item_children(user_data['registry_tag'], slot=1):
                 value_tag_alias = dpg.get_item_alias(dpg_index)
                 value_tag_label_length = max(value_tag_label_length, len(f'{value_tag_alias}'))
-
                 with dpg.group(horizontal = True):
                     dpg.add_text(value_tag_alias)
                     value_label_tags.append(dpg.last_item())
@@ -230,6 +229,15 @@ class MenuBar:
                         dpg.add_text(f'\t{dpg.get_value(dpg_index)}')
             for value_label_tag in value_label_tags:
                 dpg.set_value(value_label_tag, f'{dpg.get_value(value_label_tag):<{value_tag_label_length}} :')
+
+        dpg.set_item_user_data('MenuBar_ValueRegistryWindow', 
+                               [value_label_tags, value_tag_label_length])
+
+    def refresh_value_registry(self):
+        value_label_tags, value_tag_label_length = dpg.get_item_user_data('MenuBar_ValueRegistryWindow')
+        for value_label_tag in value_label_tags:
+            dpg.set_value(value_label_tag, f'{dpg.get_value(value_label_tag):<{value_tag_label_length}} :')
+
 
     def open_configuration(self, sender, app_data, user_data):
 

@@ -264,7 +264,7 @@ class CTVolume(object):
             self.volume += self.volume_min
 
 
-    def interpolate_volume(self, coords, order = 1, out_array = None):
+    def interpolate_volume(self, coords, rescale = 0.0, order = 1, out_array = None):
         """
         Coords are in the shape of: 
 
@@ -273,10 +273,10 @@ class CTVolume(object):
         """
         
         if type(out_array) == type(None):
-            return ndi.map_coordinates(self.volume, coords, order = order, cval=cp.nan)
+            return ndi.map_coordinates(self.volume - (rescale * self.volume_min), coords, order = order, cval=cp.nan)
         
         else:
-            ndi.map_coordinates(self.volume, coords, order = order, output=out_array, cval=cp.nan)
+            ndi.map_coordinates(self.volume - (rescale * self.volume_min), coords, order = order, output=out_array, cval=cp.nan)
 
 
     def interpolate_mask(self, coords, order = 1, out_array = None):

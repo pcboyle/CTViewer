@@ -200,7 +200,6 @@ def create_tree_node(node_dict:dict, parent_table: int|str = None, tag: int|str 
     return row_list
 
 class FileDialog(object):
-    
     size_string_dict = {0.0: 'B',
                         1.0: 'B',
                         2.0: 'B',
@@ -295,114 +294,114 @@ class FileDialog(object):
             slice_thickness
             pixel_spacing
         """
-        with dpg.mutex():
-            dcm_files = sorted(list(file_path.glob('*.dcm')))
-            n_files = len(dcm_files)
-            dcm_dir_contents = None
-            is_dicom_dir = False
+        # with dpg.mutex():
+        dcm_files = sorted(list(file_path.glob('*.dcm')))
+        n_files = len(dcm_files)
+        dcm_dir_contents = None
+        is_dicom_dir = False
+        is_dicom_image_dir = False
+        if n_files > 0:
+            is_dicom_dir = True
             is_dicom_image_dir = False
-            if n_files > 0:
-                is_dicom_dir = True
-                is_dicom_image_dir = False
-                dcm_dir_contents = {}
-                print(f'FileDialog Message:\tDetect Dicom Dir {file_path.name}: {n_files}')
-                gdcm_dir = gdcm.Directory()
-                gdcm_dir.Load(f'{file_path}')
-                file_names = sorted(gdcm_dir.GetFilenames())
-                scanner = gdcm.Scanner.New()
-                
-                for keyword, comma_separated_tag in DICOM_Tags.KEYWORDS_TO_TAGS.items():
-                    add_tag = gdcm.Tag()
-                    add_tag.ReadFromCommaSeparatedString(comma_separated_tag)
-                    scanner.AddTag(add_tag)
-
-                scanned = scanner.Scan(file_names)
-
-                im_pos_array = np.zeros((n_files,3), dtype = np.float32)
-                slice_locations = np.zeros(n_files, dtype = np.float32)
-
-                for file_index, file in enumerate(file_names):
-                    pttv = gdcm.PythonTagToValue(scanner.GetMapping(file))
-                    pttv.Start()
-
-                    while (not pttv.IsAtEnd()):
-                        tag:str = pttv.GetCurrentTag()
-                        value:str = pttv.GetCurrentValue()
-                        match tag.PrintAsContinuousString():
-                            case "00080060":
-                                modality = f'{value.strip()}'
-                            case "0020000e":
-                                seriesUID = f'{value.strip()}'
-                            case "00280100":
-                                bit_depth = int(value.strip())
-                            case "00280010":
-                                rows = int(value.strip())
-                            case "00280011":
-                                cols = int(value.strip())
-                            case "00200032":
-                                stripped_value = value.strip().split('\\')
-                                stripped_floats = [float(sv) for sv in stripped_value]
-                                im_pos_array[file_index][:] = np.array(stripped_floats)[:]
-                            case "00200037":
-                                stripped_value = value.strip().split('\\')
-                                stripped_floats = [float(sv) for sv in stripped_value]
-                                dir_cos = np.array(stripped_floats)
-                            case "00180050":
-                                slice_thickness = float(value.strip())
-                            case "00280030":
-                                pix_spacing = np.array(value.strip().split('\\'), dtype = float)
-                            case "00201041":
-                                slice_locations[file_index] = float(value.strip())
-                        pttv.Next()
-
-                    if f'{seriesUID}' not in dcm_dir_contents:
-                        dcm_dir_contents[f'{seriesUID}'] = {'dicom_files': [], 
-                                                            'modalities': [],
-                                                            'dir': file_path}
-                        
-                        if modality in DICOM_Tags.IMAGE_TAGS:
-                            is_dicom_image_dir = True
-                            dcm_dir_contents[f'{seriesUID}'].update({'shape': [cols, rows, 0], 
-                                                                     'dtype': f'int{bit_depth}',
-                                                                     'im_pos': np.zeros((n_files, 3)),
-                                                                     'slice_location': np.zeros(n_files),
-                                                                     'direction_cosines': np.zeros(6),
-                                                                     'affine': np.eye(4,4)})
-                    
-                    dcm_dir_contents[seriesUID]['dicom_files'].append(file)
-                    dcm_dir_contents[seriesUID]['modalities'].append(modality)
-                    if is_dicom_image_dir:
-                        dcm_dir_contents[seriesUID]['shape'][2] += 1
-                        dcm_dir_contents[seriesUID]['im_pos'][:] = im_pos_array[:] # X, Y, Z
-                        dcm_dir_contents[seriesUID]['slice_location'][:] = slice_locations[:]
-
-                if is_dicom_image_dir:
-                    # We want the indices to go from large to small. 
-                    sorted_indices = np.argsort(dcm_dir_contents[seriesUID]['slice_location'])[::-1] 
-                    dcm_dir_contents[seriesUID]['slice_location'][:] = dcm_dir_contents[seriesUID]['slice_location'][sorted_indices]
-                    dcm_dir_contents[seriesUID]['dicom_files'] = np.array(dcm_dir_contents[seriesUID]['dicom_files'])[sorted_indices].tolist()
-                    dcm_dir_contents[seriesUID]['modalities'] = [dcm_dir_contents[seriesUID]['modalities'][i] for i in sorted_indices]
-                    dcm_dir_contents[seriesUID]['im_pos'][:] = dcm_dir_contents[seriesUID]['im_pos'][sorted_indices]
-
-                    dcm_dir_contents[seriesUID]['direction_cosines'][:] = dir_cos[:]
-                    dcm_dir_contents[seriesUID]['affine'][:3,0] = dir_cos[:3]*pix_spacing[1] # Delta Col
-                    dcm_dir_contents[seriesUID]['affine'][:3,1] = dir_cos[3:]*pix_spacing[0] # Delta Row
-                    dcm_dir_contents[seriesUID]['affine'][:3,2] = dcm_dir_contents[seriesUID]['im_pos'][1] - dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0 # Slice Thickness
-                    dcm_dir_contents[seriesUID]['affine'][:3,3] = dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0
-
-                del gdcm_dir
-                del scanner
+            dcm_dir_contents = {}
+            print(f'FileDialog Message:\tDetect Dicom Dir {file_path.name}: {n_files}')
+            gdcm_dir = gdcm.Directory()
+            gdcm_dir.Load(f'{file_path}')
+            file_names = sorted(gdcm_dir.GetFilenames())
+            scanner = gdcm.Scanner.New()
             
-            if is_dicom_image_dir:
-                print(f'FileDialog Message: Dicom file {file_path.name} Affine:')
-                for affine_element in dcm_dir_contents[seriesUID]['affine']:
-                    print(f'\t{affine_element}')
-                print(f'FileDialog Message: Image Position Row: {dcm_dir_contents[seriesUID]['im_pos'][0]}')
-                print(f'FileDialog Message: Image Position Col: {dcm_dir_contents[seriesUID]['im_pos'][1]}')
-                print(f'FileDialog Message: Delta X           : {dir_cos[:3]*pix_spacing[1]}')
-                print(f'FileDialog Message: Delta Y           : {dir_cos[3:]*pix_spacing[0]}')
+            for keyword, comma_separated_tag in DICOM_Tags.KEYWORDS_TO_TAGS.items():
+                add_tag = gdcm.Tag()
+                add_tag.ReadFromCommaSeparatedString(comma_separated_tag)
+                scanner.AddTag(add_tag)
 
-            return dcm_dir_contents
+            scanned = scanner.Scan(file_names)
+
+            im_pos_array = np.zeros((n_files,3), dtype = np.float32)
+            slice_locations = np.zeros(n_files, dtype = np.float32)
+
+            for file_index, file in enumerate(file_names):
+                pttv = gdcm.PythonTagToValue(scanner.GetMapping(file))
+                pttv.Start()
+
+                while (not pttv.IsAtEnd()):
+                    tag:str = pttv.GetCurrentTag()
+                    value:str = pttv.GetCurrentValue()
+                    match tag.PrintAsContinuousString():
+                        case "00080060":
+                            modality = f'{value.strip()}'
+                        case "0020000e":
+                            seriesUID = f'{value.strip()}'
+                        case "00280100":
+                            bit_depth = int(value.strip())
+                        case "00280010":
+                            rows = int(value.strip())
+                        case "00280011":
+                            cols = int(value.strip())
+                        case "00200032":
+                            stripped_value = value.strip().split('\\')
+                            stripped_floats = [float(sv) for sv in stripped_value]
+                            im_pos_array[file_index][:] = np.array(stripped_floats)[:]
+                        case "00200037":
+                            stripped_value = value.strip().split('\\')
+                            stripped_floats = [float(sv) for sv in stripped_value]
+                            dir_cos = np.array(stripped_floats)
+                        case "00180050":
+                            slice_thickness = float(value.strip())
+                        case "00280030":
+                            pix_spacing = np.array(value.strip().split('\\'), dtype = float)
+                        case "00201041":
+                            slice_locations[file_index] = float(value.strip())
+                    pttv.Next()
+
+                if f'{seriesUID}' not in dcm_dir_contents:
+                    dcm_dir_contents[f'{seriesUID}'] = {'dicom_files': [], 
+                                                        'modalities': [],
+                                                        'dir': file_path}
+                    
+                    if modality in DICOM_Tags.IMAGE_TAGS:
+                        is_dicom_image_dir = True
+                        dcm_dir_contents[f'{seriesUID}'].update({'shape': [cols, rows, 0], 
+                                                                    'dtype': f'int{bit_depth}',
+                                                                    'im_pos': np.zeros((n_files, 3)),
+                                                                    'slice_location': np.zeros(n_files),
+                                                                    'direction_cosines': np.zeros(6),
+                                                                    'affine': np.eye(4,4)})
+                
+                dcm_dir_contents[seriesUID]['dicom_files'].append(file)
+                dcm_dir_contents[seriesUID]['modalities'].append(modality)
+                if is_dicom_image_dir:
+                    dcm_dir_contents[seriesUID]['shape'][2] += 1
+                    dcm_dir_contents[seriesUID]['im_pos'][:] = im_pos_array[:] # X, Y, Z
+                    dcm_dir_contents[seriesUID]['slice_location'][:] = slice_locations[:]
+
+            if is_dicom_image_dir:
+                # We want the indices to go from large to small. 
+                sorted_indices = np.argsort(dcm_dir_contents[seriesUID]['slice_location'])[::-1] 
+                dcm_dir_contents[seriesUID]['slice_location'][:] = dcm_dir_contents[seriesUID]['slice_location'][sorted_indices]
+                dcm_dir_contents[seriesUID]['dicom_files'] = np.array(dcm_dir_contents[seriesUID]['dicom_files'])[sorted_indices].tolist()
+                dcm_dir_contents[seriesUID]['modalities'] = [dcm_dir_contents[seriesUID]['modalities'][i] for i in sorted_indices]
+                dcm_dir_contents[seriesUID]['im_pos'][:] = dcm_dir_contents[seriesUID]['im_pos'][sorted_indices]
+
+                dcm_dir_contents[seriesUID]['direction_cosines'][:] = dir_cos[:]
+                dcm_dir_contents[seriesUID]['affine'][:3,0] = dir_cos[:3]*pix_spacing[1] # Delta Col
+                dcm_dir_contents[seriesUID]['affine'][:3,1] = dir_cos[3:]*pix_spacing[0] # Delta Row
+                dcm_dir_contents[seriesUID]['affine'][:3,2] = dcm_dir_contents[seriesUID]['im_pos'][1] - dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0 # Slice Thickness
+                dcm_dir_contents[seriesUID]['affine'][:3,3] = dcm_dir_contents[seriesUID]['im_pos'][0] + 0.0
+
+            del gdcm_dir
+            del scanner
+        
+        if is_dicom_image_dir:
+            print(f'FileDialog Message: Dicom file {file_path.name} Affine:')
+            for affine_element in dcm_dir_contents[seriesUID]['affine']:
+                print(f'\t{affine_element}')
+            print(f'FileDialog Message: Image Position Row: {dcm_dir_contents[seriesUID]['im_pos'][0]}')
+            print(f'FileDialog Message: Image Position Col: {dcm_dir_contents[seriesUID]['im_pos'][1]}')
+            print(f'FileDialog Message: Delta X           : {dir_cos[:3]*pix_spacing[1]}')
+            print(f'FileDialog Message: Delta Y           : {dir_cos[3:]*pix_spacing[0]}')
+
+        return dcm_dir_contents
 
 
     def format_file_size(f_size):
@@ -963,34 +962,31 @@ class FileDialog(object):
         if not dpg.is_item_shown(self.file_dialog_window):
             return
         
-        with dpg.mutex():
-            # Gets parent 
-            user_data = dpg.get_item_user_data(app_data[1])[1]
-            if sender == self.go_up_directory_button_tag:
-                self.change_current_directory(sender, app_data, user_data)
-                self.refresh_current_directory(None, None, self.is_windows_drive_parent)
-                print('FileDialog Message: double_click_callback', flush = True)
-                print(f'\t{sender = }')
+        # Gets parent 
+        user_data = dpg.get_item_user_data(app_data[1])[1]
+        if sender == self.go_up_directory_button_tag:
+            self.change_current_directory(sender, app_data, user_data)
+            self.refresh_current_directory('double_click_callback', '', self.is_windows_drive_parent)
+            print('FileDialog Message: double_click_callback', flush = True)
+            print(f'\t{sender = }')
 
-            elif user_data['Is Dir']:
-                self.change_current_directory(sender, app_data, user_data)
-                self.refresh_current_directory(None, None, self.is_windows_drive_parent)
-                print('FileDialog Message: double_click_callback', flush = True)
-                print(f'\t{user_data['Is Dir'] = }', flush = True)
-                
-            else:
-                return
+        elif user_data['Is Dir']:
+            self.change_current_directory(sender, app_data, user_data)
+            self.refresh_current_directory('double_click_callback', '', self.is_windows_drive_parent)
+            print('FileDialog Message: double_click_callback', flush = True)
+            print(f'\t{user_data['Is Dir'] = }', flush = True)
+            
+        else:
+            return
             
 
     def go_up_directory(self, sender, app_data, user_data):
-        with dpg.mutex():
-            self.change_current_directory(sender, app_data, user_data)
-            self.refresh_current_directory(None, None, self.is_windows_drive_parent)
+        self.change_current_directory(sender, app_data, user_data)
+        self.refresh_current_directory('go_up_directory', '', self.is_windows_drive_parent)
 
 
     def refresh_directory_button(self, sender, app_data, user_data):
-        with dpg.mutex():
-            self.refresh_current_directory(sender, app_data, user_data)
+        self.refresh_current_directory(sender, app_data, user_data)
 
 
     def change_current_directory(self, sender, app_data, user_data):

@@ -63,6 +63,7 @@ def get_gpu_information():
         pass
 
 def main():
+
     parser = argparse.ArgumentParser(
         prog='CT Viewer',
         description = 'A tool to examine multiple ct volumes.',
@@ -154,6 +155,7 @@ def main():
 
     if G.GPU_MODE:
         cp.cuda.Device(G.DEVICE).use()
+        # dpg.configure_app(auto_device=False, device = G.DEVICE, wait_for_input=False, manual_callback_management=True)
         dpg.configure_app(auto_device=False, device = G.DEVICE, wait_for_input=False)
         gpu_debug_file = Path(G.CONFIG_DIR).joinpath('gpu_debug')
 
@@ -210,7 +212,11 @@ def main():
         try:
             gpu_log = open(gpu_log_path, mode = 'a')
             while dpg.is_dearpygui_running():
-                time.sleep(_MAXFRAMERATE_)
+                # jobs = dpg.get_callback_queue() # retrieves and clears queue
+                # if jobs:
+                #     print(jobs)
+                # dpg.run_callbacks(jobs)
+                dpg.render_dearpygui_frame()
                 if frame_count%60 == 0:
 
                     frame_rate = get_frame_rate(start_time, 60)
@@ -222,11 +228,9 @@ def main():
                             flush = True, 
                             end = '')
                     
-                    start_time = datetime.datetime.now()
-                
-                dpg.render_dearpygui_frame()
-                
+                    start_time = datetime.datetime.now()                
                 frame_count += 1
+                time.sleep(_MAXFRAMERATE_)
 
         except:
             with Exception as e:

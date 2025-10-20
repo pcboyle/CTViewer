@@ -340,7 +340,10 @@ class G:
                        
                        'min_intensity': 'min_intensity_slider', 
                        'max_intensity': 'max_intensity_slider', 
-                       'colormap_name': 'colormap_combo'}
+                       'colormap_name': 'colormap_combo',
+                       'colormap_rescaled': 'colormap_rescaled',
+                       'colormap_scale_type': 'colormap_scale_type',
+                       'colormap_reversed': 'colormap_reversed'}
     
     
     OPTIONS_DICT = {'img_index_slider': {}, 
@@ -521,6 +524,15 @@ class G:
         dpg.add_string_value(tag = 'colormap_combo_current_value',
                              default_value = 'Fire', 
                              parent = value_registry_tag)
+        dpg.add_string_value(tag = 'colormap_scale_type_current_value',
+                             default_value = 'Linear', 
+                             parent = value_registry_tag)
+        dpg.add_bool_value(tag = 'colormap_rescaled_current_value',
+                           default_value = False,
+                           parent = value_registry_tag)
+        dpg.add_bool_value(tag = 'colormap_reversed_current_value',
+                           default_value = False,
+                           parent = value_registry_tag)
 
     def add_input_options_to_value_registry(value_registry_tag):
         # Set up slider value registry. This is used with the mouse wheel which can otherwise extend past the 

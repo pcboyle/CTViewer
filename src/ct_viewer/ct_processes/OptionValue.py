@@ -29,14 +29,13 @@ class IntensityInfo(object):
         self.tag: StringValue = StringValue(default_string=tag)
         self.min_intensity: OptionValue = OptionValue(**default_colormap_info['min_intensity'])
         self.max_intensity: OptionValue = OptionValue(**default_colormap_info['max_intensity'])
-        # self.colormap: list[interp1d] = default_colormap_info['colormap']
         self.colormap: ColormapValue = ColormapValue(default_colormap = default_colormap_info['colormap'])
         self.colormap_name: StringValue = StringValue(default_string = default_colormap_info['colormap_name']) # eg, Fire
-        self.colormap_reversed: bool = default_colormap_info['colormap_reversed']
-        self.colormap_log: bool = False
         self.colormap_scale_type: StringValue = StringValue(default_string = default_colormap_info['colormap_scale_type'])
         self.colormap_scale_tag: StringValue = StringValue(default_string = default_colormap_info['colormap_scale_tag'])
-        self.colormap_rescaled: bool = False
+        self.colormap_rescaled: BoolValue = BoolValue(default_bool = False)
+        self.colormap_reversed: BoolValue = BoolValue(default_bool = default_colormap_info['colormap_reversed'])
+        self.colormap_log: BoolValue = BoolValue(default_bool = False)
         self.window_size = 1
 
         if G.GPU_MODE:
@@ -86,28 +85,28 @@ class IntensityInfo(object):
                         ):
         
         if colormap_name == None:
-            colormap_name = dpg.get_value('colormap_combo')
+            colormap_name = dpg.get_value('colormap_combo_current_value')
         
         if colormap_reversed == None:
-            colormap_reversed = colormap_reversed
+            colormap_reversed = dpg.get_value('reverse_colormap_current_value')
 
         if colormap_scale_type == None:
-            pass
+            colormap_scale_type = dpg.get_value('colormap_scale_current_value')
 
         if colormap_scale_tag == None:
             pass
         
         if colormap_rescaled == None:
-            self.colormap_rescaled = False
+            colormap_rescaled =  dpg.get_value('rescale_colormap_current_value')
 
         self.colormap_name.update_values(colormap_name)
         self.colormap_scale_tag.update_values(colormap_scale_tag)
         self.colormap_scale_type.update_values(colormap_scale_type)
-        self.colormap_rescaled = colormap_rescaled
-        self.colormap_reversed = colormap_reversed
-        self.colormap_log = colormap_log
+        self.colormap_rescaled.update_values(colormap_rescaled)
+        self.colormap_reversed.update_values(colormap_reversed)
+        self.colormap_log.update_values(colormap_log)
 
-        if self.colormap_reversed: 
+        if self.colormap_reversed.current_value: 
             setattr(self, 'colormap', G.COLORMAP_DICT[colormap_name]['colormap_r'])
         else:
             setattr(self, 'colormap', G.COLORMAP_DICT[colormap_name]['colormap'])
@@ -785,6 +784,48 @@ class HistogramInfo(object):
             setattr(self, attrib_name, None)
             delattr(self, attrib_name)
 
+
+class BoolValue(object):
+    def __init__(self, tag = '', default_bool:bool = False):
+
+        self.tag = tag
+        self.default_value:str = default_bool
+        self.current_value:str = default_bool
+        self.difference_value:str = default_bool
+        self.previous_value:str = default_bool
+
+    def __repr__(self):
+        return f'{self.current_value}'
+
+    def __call__(self):
+        return f'{self.current_value}'
+        
+    def set_previous_value(self):
+        self.previous_value = self.current_value
+    
+    def set_current_value(self, new_current):
+        self.current_value = new_current
+        
+    def update_values(self, new_current):
+        self.set_previous_value()
+        self.set_current_value(new_current)
+        
+    def reset(self):
+        self.set_current_value(self.default_value)
+        self.set_previous_value()
+
+    def set_info(self, info_dict: dict):
+        self.__dict__ = dict(info_dict)
+        
+    def get_info(self) -> dict:
+        return dict(self.__dict__)
+
+    def _cleanup_(self):
+        attrib_list = list(self.__dict__.keys())
+        while len(attrib_list) > 0:
+            attrib_key = attrib_list.pop()
+            setattr(self, attrib_key, None)
+            delattr(self, attrib_key)
 
 class StringValue(object):
     def __init__(self, tag = '', default_string:str = 'Default'):
