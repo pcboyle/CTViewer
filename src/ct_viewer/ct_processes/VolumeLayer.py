@@ -1006,7 +1006,8 @@ class VolumeLayer(object):
         
     def update_histogram(self, 
                          histogram_type:str,
-                         histogram_info:dict):
+                         histogram_info:dict,
+                         colormap_rescaled:bool = False):
         print('VolumeLayer Message: Updating Histogram')
         with dpg.mutex():
             if histogram_type == 'volume':
@@ -1019,7 +1020,7 @@ class VolumeLayer(object):
                 self.VolumeHistogram.update_bins(min_value = bin_min,
                                                  max_value = bin_max,
                                                  bin_step = bin_step)
-                self.VolumeHistogram.update_histogram_counts(self.CTVolume.volume[~self.CTVolume.mask.astype(bool)])
+                self.VolumeHistogram.update_histogram_counts(self.CTVolume.volume[~self.CTVolume.mask.astype(bool)] - float(colormap_rescaled) * self.CTVolume.volume_min)
                 dpg.set_value(target_line_series, self.VolumeHistogram.get_histogram(return_order='reversed'))
 
 
@@ -1033,7 +1034,7 @@ class VolumeLayer(object):
                 self.TextureHistogram.update_bins(min_value = bin_min,
                                                  max_value = bin_max,
                                                  bin_step = bin_step)
-                self.TextureHistogram.update_histogram_counts(self.CTVolume.volume[~self.CTVolume.mask.astype(bool)])
+                self.TextureHistogram.update_histogram_counts(self.CTVolume.volume[~self.CTVolume.mask.astype(bool)] - float(colormap_rescaled) * self.CTVolume.volume_min)
                 dpg.set_value(target_line_series, self.TextureHistogram.get_histogram(return_order='reversed'))
                 
             else:
@@ -1722,9 +1723,9 @@ class VolumeLayerGroups(object):
                 )
             
         if changed_volume:
-            self.update_histogram('volume')
+            self.update_histogram('volume', colormap_rescaled = intensity_info['colormap_rescaled'])
 
-        self.update_histogram('texture')
+        self.update_histogram('texture', colormap_rescaled = intensity_info['colormap_rescaled'])
         
 
     def get_histogram_info(self, 
@@ -1751,13 +1752,15 @@ class VolumeLayerGroups(object):
 
     def update_histogram(self,
                          histogram_type: str, 
-                         histogram_info: dict = None):
+                         histogram_info: dict = None,
+                         colormap_rescaled: bool = False):
         
         if histogram_info == None:
             histogram_info = self.get_histogram_info(histogram_type)
         
         self.get_current_volume().update_histogram(histogram_type,
-                                                   histogram_info)
+                                                   histogram_info,
+                                                   colormap_rescaled = colormap_rescaled)
 
 
     def get_last_group(self) -> VolumeLayerGroup:
