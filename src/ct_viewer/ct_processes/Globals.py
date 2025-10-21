@@ -367,7 +367,7 @@ class G:
                               'Roll Angle     ', 'Min Intensity  ', 'Max Intensity  ', 
                               'Pixel Spacing X', 'Pixel Spacing Y', 'Slice Thickness'], 
                     'default_value': [1, 
-                                      0, 0, 0,
+                                      0, 0, 0, 
                                       0, 0, 0, 
                                       0, 0, 1200, 
                                       1.0, 1.0, 1.0], 
@@ -545,7 +545,6 @@ class G:
             step_fast_value = G.OPTIONS_DICT[option_key]['step_fast_value']
             option_type = G.OPTIONS_DICT[option_key]['option_type']
             print(f'\t\tAdding {slider_tag}_current_value to value registry.')
-            print(f'\t\tAdding {slider_tag}_increment_input_float_value to value registry.')
            
             if option_type == 'int':
                 dpg.add_int_value(tag = f'{slider_tag}_current_value', 

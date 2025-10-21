@@ -229,13 +229,12 @@ class InformationBox(object):
 
 
     def initialize_tables(self, volume_names):
-        with dpg.mutex():
-            for volume_name in volume_names:
-                if volume_name not in self.landmark_volumes:
-                    self.landmark_volumes.append(volume_name)
+        for volume_name in volume_names:
+            if volume_name not in self.landmark_volumes:
+                self.landmark_volumes.append(volume_name)
 
-                    self.initialize_landmark_table(volume_name)
-                    self.initialize_layers_table(volume_name)
+                self.initialize_landmark_table(volume_name)
+                self.initialize_layers_table(volume_name)
 
     def initialize_layers_table(self, volume_name):
         print(f'InformationBox Message: Adding Layers Table: {volume_name}_layers_table')
@@ -531,6 +530,8 @@ class InformationBox(object):
         self.group_text = ''
         for group in VolumeLayerGroups.group_names: #G.APP.VolumeLayerGroups.group_names:
             self.group_text = f'{self.group_text}\n{group}'
+            for volume_name in VolumeLayerGroups.get_group_by_name(group).volume_names:
+                self.group_text = f'{self.group_text}\n\t{volume_name}'
         dpg.set_value('group_tab_text', self.group_text)
 
     

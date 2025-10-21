@@ -21,6 +21,9 @@ class MenuBar:
                 dpg.add_menu_item(label = 'Add Volumes', 
                                   tag = 'MenuBarFile_add_volume', 
                                   callback = self.open_files)
+                dpg.add_menu_item(label = 'Close Volume',
+                                  tag = 'MenuBarFile_close_volume',
+                                  callback = self.close_volume)
                 dpg.add_menu_item(label = 'Close All', 
                                   tag = 'MenuBarFile_close', 
                                   callback = self.close_all)
@@ -137,6 +140,10 @@ class MenuBar:
         self.ImageTools = ImageTools
         self.NodeEditor = NodeEditor
         self.classes_assigned = True
+
+    def close_volume(self):
+        print('MenuBar Message: Closing Volume')
+        print(f'MenuBar Message: {self.VolumeLayerGroups.active = }')
 
     def close_all(self):
         print('MenuBar Message: Closing All Volumes')

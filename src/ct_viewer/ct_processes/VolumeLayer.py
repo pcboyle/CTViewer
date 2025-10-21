@@ -1290,7 +1290,7 @@ class VolumeLayerGroup(object):
             print(f'VolumeLayer Message: {volume_index} larger than number of volumes ({self.n_volumes}) in {self.group_name}!')
             return getattr(self, self.volume_names[-1])
         
-        return getattr(self, self.volume_names[volume_index - 1])
+        return getattr(self, self.volume_names[volume_index])
 
 
     def get_last_volume(self) -> VolumeLayer:

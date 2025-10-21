@@ -1439,13 +1439,11 @@ class DataLoader(object):
         with dpg.mutex():
             if VolumeLayerGroups.get_group_by_index(0).n_volumes > 0:
                 if not VolumeLayerGroups.active:
+                    print(f'FILEDIALOG MESSAGE: {VolumeLayerGroups.get_group_by_index(0).volume_names = }')
                     VolumeLayerGroups.set_current_volume_by_index(0, 0)
                     VolumeLayerGroups.get_current_volume().show_drawimage()
-                    # VolumeLayerGroups.get_current_volume().add_textures_to_drawlayers(VolumeLayerGroups.texture_drawlayer_tags)
-                    # VolumeLayerGroups.get_current_volume().add_textures_to_drawlayers(drawlayer=DrawWindow.return_texture_drawlayer_tag(window_tag))
                     VolumeLayerGroups.get_current_volume().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
                     VolumeLayerGroups.get_current_group().set_colormap_scale_tag(DrawWindow.return_colormap_tag(DrawWindow.get_window_tags()[0]))
-                    # VolumeLayerGroups.get_current_group().set_drawlayer_tags(DrawWindow.get_texture_drawlayer_tags())
 
                     InformationBox.load_image(VolumeLayerGroups)
 
@@ -1468,15 +1466,15 @@ class DataLoader(object):
             dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {VolumeLayerGroups.get_current_volume().name}')
             
             OptionsPanel.update_volume('FileDialog', None, None)
-            # VolumeLayerGroups.get_current_group().set_landmark_draw_layer_tag(DrawWindow.return_landmark_drawlayer_tag(window_tag))
             VolumeLayerGroups.update_histogram('volume')
             VolumeLayerGroups.update_histogram('texture')
 
             for vol_index in range(0, VolumeLayerGroups.get_group_by_index(0).n_volumes):
-                affine = VolumeLayerGroups.get_volume_by_index(0, vol_index).CTVolume.affine
                 vol_name = VolumeLayerGroups.get_volume_by_index(0, vol_index).name
-                InformationBox.add_layer(vol_name, 
-                                        affine)
+                affine = VolumeLayerGroups.get_volume_by_index(0, vol_index).CTVolume.affine
+                if vol_name not in InformationBox.landmark_volumes:
+                    InformationBox.add_layer(vol_name, 
+                                            affine)
 
             # dpg.set_value('InfoBoxTab_layers_text', layers_tab_text)
             self.hide_loading_window()
@@ -1518,9 +1516,9 @@ class DataLoader(object):
             for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
                 VolumeLayerGroups.add_volume_to_group('AllVolumes',
                                                     self.load_type_dict[file_type](files_to_be_loaded_dict, 
-                                                                                   file_id, 
-                                                                                   volume_name,
-                                                                                   file_name = file_name))
+                                                                                file_id, 
+                                                                                volume_name,
+                                                                                file_name = file_name))
 
     def load_mat_file(self, files_to_be_loaded_dict, file_id, volume_name, file_name = '') -> CTVolume.CTVolume:
         # for volume_name in files_to_be_loaded_dict[file_id]['volumes']:
