@@ -324,7 +324,7 @@ class OrientationInfo(object):
                                 self.geometry_vector,
                                 self.quaternion)
 
-                self.set_norm_vector(self.affine.get_rotation_matrix())
+                self.set_norm_vector(self.affine)
                 
                 self.set_view_plane(self.affine)
 
