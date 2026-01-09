@@ -7,10 +7,9 @@ class Themes():
             
         with dpg.theme(tag = G.LINE_THEME):
             with dpg.theme_component(dpg.mvAll):
-                dpg.add_theme_color(dpg.mvPlotCol_Line, 
+                dpg.add_theme_color(dpg.mvPlotCol_Line,
                                     G.CONFIG_DICT['default_colors']['default_crosshair_color'], 
-                                    tag = 'crosshair_color_theme', 
-                                    category = dpg.mvThemeCat_Plots)
+                                    tag = 'crosshair_color_theme')
 
                 # dpg.add_theme_color(dpg.mvPlotCol_Line, 
                 #                     G.CONFIG_DICT['default_colors']['default_crosshair_color'], 

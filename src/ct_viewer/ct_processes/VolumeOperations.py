@@ -48,6 +48,7 @@ class VolumeOperations(object):
         
     def format_interpolation_slab(self,
                                   norm_vector: np.ndarray | cp.ndarray, # (3, 1)
+                                  norm_vector_scale: float,
                                   volume_view_plane: np.ndarray | cp.ndarray, # (3, N) Points
                                   start: int,
                                   stop: int) -> cp.ndarray:
@@ -56,7 +57,7 @@ class VolumeOperations(object):
         
         """
         steps = stop - start + 1
-        self.norm_array[:, :steps] = norm_vector * cp.linspace(start, stop, steps, dtype = cp.float32)
+        self.norm_array[:, :steps] = norm_vector_scale * norm_vector * cp.linspace(start, stop, steps, dtype = cp.float32)
         self.interpolation_slab[:, :steps, :, :] = volume_view_plane.reshape((3, 1, self.texture_dim, self.texture_dim)).repeat(steps, axis = 1)
         # view_slab = volume_view_plane.reshape((3, 1, volume_view_plane.shape[1])).repeat(steps, axis = 1)
         self.interpolation_slab[:, :steps] = cp.moveaxis(cp.moveaxis(self.interpolation_slab[:, :steps], (0, 1, 2, 3), (2, 3, 0, 1)) 
@@ -71,6 +72,7 @@ class VolumeOperations(object):
                            ctvolume, 
                            steps,
                            view_slab, 
+                           rescaled = False,
                            order = 1) -> cp.ndarray:
         """
         
@@ -79,14 +81,16 @@ class VolumeOperations(object):
         """
         self.volume_slab.fill(cp.nan)
         
-        self.volume_slab[:steps] = ctvolume.interpolate_volume(self.interpolation_slab[:, :steps], order = order)
+        self.volume_slab[:steps] = ctvolume.interpolate_volume(self.interpolation_slab[:, :steps], rescale = float(rescaled), order = order)
 
     def get_operation_volume(self, 
                              ctvolume, 
                              norm_vector, 
+                             norm_vector_scale,
                              volume_view_plane, 
                              start, 
                              stop,
+                             rescaled = False,
                              order = 1) -> cp.ndarray:
         
         if start > stop: 
@@ -94,6 +98,7 @@ class VolumeOperations(object):
 
         steps = stop - start + 1
         self.format_interpolation_slab(norm_vector, 
+                                       norm_vector_scale,
                                        volume_view_plane, 
                                        start,
                                        stop)
@@ -101,6 +106,7 @@ class VolumeOperations(object):
         self.interpolate_volume(ctvolume, 
                                 steps,
                                 self.interpolation_slab,
+                                rescaled = rescaled,
                                 order = order)
     
     def perform_operation(self, 
@@ -108,9 +114,12 @@ class VolumeOperations(object):
                           norm_vector_1,
                           view_plane_1,
                           ctvolume_1,
+                          norm_vector_scale_1 = 1.0,
+                          rescaled = False,
                           norm_vector_2 = None,
                           view_plane_2 = None,
                           ctvolume_2 = None,
+                          norm_vector_scale_2 = 1.0,
                           start = 0, 
                           stop = 0,
                           order = 1) -> cp.ndarray:
@@ -124,24 +133,26 @@ class VolumeOperations(object):
         self.texture_content.fill(cp.nan)
         self.get_operation_volume(ctvolume_1, 
                                   norm_vector_1,
+                                  norm_vector_scale_1,
                                   view_plane_1, 
                                   start, 
                                   stop, 
+                                  rescaled = rescaled,
                                   order = order)
         
         steps = stop - start + 1
 
         if operation == 'add':
-            return self.add_volumes(self.get_operation_volume(ctvolume_1, norm_vector_1, view_plane_1, 0, 0, order = order), 
-                                    self.get_operation_volume(ctvolume_2, norm_vector_2, view_plane_2, 0, 0, order = order))
+            return self.add_volumes(self.get_operation_volume(ctvolume_1, norm_vector_1, norm_vector_scale_1, view_plane_1, 0, 0, rescaled = rescaled, order = order), 
+                                    self.get_operation_volume(ctvolume_2, norm_vector_2, norm_vector_scale_2, view_plane_2, 0, 0, rescaled = rescaled, order = order))
 
         if operation == 'multiply':
-            return self.multiply_volumes(self.get_operation_volume(ctvolume_1, norm_vector_1, view_plane_1, 0, 0, order = order), 
-                                         self.get_operation_volume(ctvolume_2, norm_vector_2, view_plane_2, 0, 0, order = order))
+            return self.multiply_volumes(self.get_operation_volume(ctvolume_1, norm_vector_1, norm_vector_scale_1, view_plane_1, 0, 0, rescaled = rescaled, order = order), 
+                                         self.get_operation_volume(ctvolume_2, norm_vector_2, norm_vector_scale_2, view_plane_2, 0, 0, rescaled = rescaled, order = order))
 
         if operation == 'difference':
-            return self.difference_volumes(self.get_operation_volume(ctvolume_1, norm_vector_1, view_plane_1, 0, 0, order = order), 
-                                           self.get_operation_volume(ctvolume_2, norm_vector_2, view_plane_2, 0, 0, order = order))
+            return self.difference_volumes(self.get_operation_volume(ctvolume_1, norm_vector_1, norm_vector_scale_1, view_plane_1, 0, 0, rescaled = rescaled, order = order), 
+                                           self.get_operation_volume(ctvolume_2, norm_vector_2, norm_vector_scale_2, view_plane_2, 0, 0, rescaled = rescaled, order = order))
         
         if operation == 'Mean':
             self.volume_mean(self.volume_slab[:steps])

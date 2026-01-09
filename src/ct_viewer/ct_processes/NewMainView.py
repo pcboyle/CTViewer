@@ -7,12 +7,13 @@ class MainView:
     mode_function = lambda x: getattr(cp, x.__name__) if G.GPU_MODE else getattr(np, x.__name__)
     mode_number = lambda x: getattr(cp, x.__str__()) if G.GPU_MODE else getattr(np, x.__str__())\
     
-    def __init__(self):
+    def __init__(self, value_registry):
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
             print(f'MainView Message: Using CUDA device {G.DEVICE}.')
 
         self.window_dict:dict = {}
+        self.value_registry = value_registry
 
 
     def get_window_tags(self):
@@ -164,13 +165,19 @@ class MainView:
                               [round(0.5 * width), height], 
                               color = dpg.get_value(f'ValueRegister_Configuration_default_crosshair_color_value'),
                               tag = self.return_crosshair_vertical_tag(window_tag = window_tag))
-                dpg.bind_item_theme(dpg.last_item(), G.LINE_THEME)
+                dpg.add_string_value(tag = 'Inset_Crosshair_Vertical', 
+                                     default_value = self.return_crosshair_vertical_tag(window_tag = window_tag),
+                                     parent = self.value_registry)
+                # dpg.bind_item_theme(dpg.last_item(), G.LINE_THEME)
                 
                 dpg.draw_line([0.0, round(0.5 * height)], 
                               [width, round(0.5 * height)], 
                               color = dpg.get_value(f'ValueRegister_Configuration_default_crosshair_color_value'),
                               tag = self.return_crosshair_horizontal_tag(window_tag = window_tag))
-                dpg.bind_item_theme(dpg.last_item(), G.LINE_THEME)
+                dpg.add_string_value(tag = 'Inset_Crosshair_Horizontal', 
+                                     default_value = self.return_crosshair_horizontal_tag(window_tag = window_tag),
+                                     parent = self.value_registry)
+                # dpg.bind_item_theme(dpg.last_item(), G.LINE_THEME)
                 
             dpg.add_draw_layer(parent = self.return_texture_drawlist_tag(window_tag = window_tag),
                                tag = self.return_landmark_drawlayer_tag(window_tag = window_tag))
@@ -220,13 +227,19 @@ class MainView:
                           [G.TEXTURE_CENTER, 1000], 
                           color = dpg.get_value(f'ValueRegister_Configuration_default_crosshair_color_value'),
                           tag = self.return_crosshair_vertical_tag(window_tag))
-            dpg.bind_item_theme(dpg.last_item(), G.LINE_THEME)
+            dpg.add_string_value(tag = 'Main_Crosshair_Vertical', 
+                                 default_value = self.return_crosshair_vertical_tag(window_tag = window_tag),
+                                 parent = self.value_registry)
+            # dpg.bind_item_theme(dpg.last_item(), G.LINE_THEME)
             
             dpg.draw_line([0, G.TEXTURE_CENTER], 
                           [1000, G.TEXTURE_CENTER], 
                           color = dpg.get_value(f'ValueRegister_Configuration_default_crosshair_color_value'),
                           tag = self.return_crosshair_horizontal_tag(window_tag))
-            dpg.bind_item_theme(dpg.last_item(), G.LINE_THEME)            
+            dpg.add_string_value(tag = 'Main_Crosshair_Horizontal', 
+                                 default_value = self.return_crosshair_horizontal_tag(window_tag = window_tag),
+                                 parent = self.value_registry)
+            # dpg.bind_item_theme(dpg.last_item(), G.LINE_THEME)
             
         dpg.add_draw_layer(parent = self.return_texture_drawlist_tag(window_tag),
                            tag = self.return_landmark_drawlayer_tag(window_tag))

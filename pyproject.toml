@@ -3,11 +3,11 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ct_viewer"
+name = "CTViewer-Research"
 authors = [
-    { name = "Peter Boyle", email = "pboyle@mednet.ucla.edu" },
+    { name = "Peter Boyle" },
 ]
-description = "CT Viewer with advanced analysis features."
+description = "A medical imaging viewer for CT scans with advanced analysis features."
 
 readme = "README.md"
 
@@ -15,7 +15,18 @@ dynamic = ["dependencies", "version"]
 
 requires-python = ">=3.12"
 license = { text = "Proprietary" }
-classifiers = ["Programming Language :: Python :: 3.12"]
+keywords = ["medical imaging", "DICOM", "Nifti", "cupy", "dearpygui"]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pcboyle/CTViewer"
 
 [project.scripts]
 ct_viewer = "ct_viewer.ct_viewer:main"

@@ -8,13 +8,15 @@ class ImageTools:
     """
     
     def __init__(self, 
-                 VolumeLayerGroups:VolumeLayer.VolumeLayerGroups, 
-                 tab = ''):
+                 VolumeLayerGroups:VolumeLayer.VolumeLayerGroups,
+                 value_registry: str|int):
 
         self.operation_dict = {'Mean': 'mean',
                                'Standard Deviation': 'std',
                                'Min': 'min',
                                'Max': 'max'}
+
+        self.value_registry = value_registry
 
         if G.GPU_MODE:
             cp.cuda.Device(G.DEVICE).use()
@@ -232,8 +234,12 @@ class ImageTools:
 
 
     def update_crosshair_color(self):
-        # print(dpg.get_value('crosshair_color_theme'), dpg.get_value('crosshair_color_picker'))
-        dpg.set_value('crosshair_color_theme', dpg.get_value('crosshair_color_picker'))
+        # dpg.set_value('crosshair_color_theme', dpg.get_value('crosshair_color_picker'))
+        dpg.configure_item(dpg.get_value('Main_Crosshair_Vertical'), color = dpg.get_value('crosshair_color_picker'))
+        dpg.configure_item(dpg.get_value('Main_Crosshair_Horizontal'), color = dpg.get_value('crosshair_color_picker'))
+        dpg.configure_item(dpg.get_value('Inset_Crosshair_Vertical'), color = dpg.get_value('crosshair_color_picker'))
+        dpg.configure_item(dpg.get_value('Inset_Crosshair_Horizontal'), color = dpg.get_value('crosshair_color_picker'))
+        # dpg.set_value('ValueRegister_Configuration_default_crosshair_color_value', dpg.get_value('crosshair_color_picker'))
         
 
     def update_landmark_colors(self):

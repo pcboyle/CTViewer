@@ -2,10 +2,6 @@ from .Globals import *
 
 if G.GPU_MODE:
     cp.cuda.Device(G.DEVICE).use()
-
-class DummyValue(object):
-    def __init__(self):
-        pass
     
 mode_return_type = lambda x, y: x.astype(getattr(cp, y)) if G.GPU_MODE else lambda x, y: x.astype(getattr(np, y))
 mode_create_array = lambda x: cp.array(x) if G.GPU_MODE else lambda x: np.array(x)
@@ -33,14 +29,13 @@ class IntensityInfo(object):
         self.tag: StringValue = StringValue(default_string=tag)
         self.min_intensity: OptionValue = OptionValue(**default_colormap_info['min_intensity'])
         self.max_intensity: OptionValue = OptionValue(**default_colormap_info['max_intensity'])
-        # self.colormap: list[interp1d] = default_colormap_info['colormap']
         self.colormap: ColormapValue = ColormapValue(default_colormap = default_colormap_info['colormap'])
         self.colormap_name: StringValue = StringValue(default_string = default_colormap_info['colormap_name']) # eg, Fire
-        self.colormap_reversed: bool = default_colormap_info['colormap_reversed']
-        self.colormap_log: bool = False
         self.colormap_scale_type: StringValue = StringValue(default_string = default_colormap_info['colormap_scale_type'])
         self.colormap_scale_tag: StringValue = StringValue(default_string = default_colormap_info['colormap_scale_tag'])
-        self.colormap_rescaled: bool = False
+        self.colormap_rescaled: BoolValue = BoolValue(default_bool = False)
+        self.colormap_reversed: BoolValue = BoolValue(default_bool = default_colormap_info['colormap_reversed'])
+        self.colormap_log: BoolValue = BoolValue(default_bool = False)
         self.window_size = 1
 
         if G.GPU_MODE:
@@ -90,28 +85,28 @@ class IntensityInfo(object):
                         ):
         
         if colormap_name == None:
-            colormap_name = dpg.get_value('colormap_combo')
+            colormap_name = dpg.get_value('colormap_combo_current_value')
         
         if colormap_reversed == None:
-            colormap_reversed = colormap_reversed
+            colormap_reversed = dpg.get_value('reverse_colormap_current_value')
 
         if colormap_scale_type == None:
-            pass
+            colormap_scale_type = dpg.get_value('colormap_scale_current_value')
 
         if colormap_scale_tag == None:
             pass
         
         if colormap_rescaled == None:
-            self.colormap_rescaled = False
+            colormap_rescaled =  dpg.get_value('rescale_colormap_current_value')
 
         self.colormap_name.update_values(colormap_name)
         self.colormap_scale_tag.update_values(colormap_scale_tag)
         self.colormap_scale_type.update_values(colormap_scale_type)
-        self.colormap_rescaled = colormap_rescaled
-        self.colormap_reversed = colormap_reversed
-        self.colormap_log = colormap_log
+        self.colormap_rescaled.update_values(colormap_rescaled)
+        self.colormap_reversed.update_values(colormap_reversed)
+        self.colormap_log.update_values(colormap_log)
 
-        if self.colormap_reversed: 
+        if self.colormap_reversed.current_value: 
             setattr(self, 'colormap', G.COLORMAP_DICT[colormap_name]['colormap_r'])
         else:
             setattr(self, 'colormap', G.COLORMAP_DICT[colormap_name]['colormap'])
@@ -176,58 +171,6 @@ class IntensityInfo(object):
             delattr(self, attrib_name)
 
 
-class GeometryInfo(object):
-    def __init__(self, 
-                 default_geometry: list[float, float, float] = [1.0, 1.0, 1.0],
-                 default_limits: list[float, float] = [0.25, 10.0]):
-        
-        self.pixel_spacing_x = OptionValue(tag = G.OPTION_TAG_DICT['pixel_spacing_x'], 
-                                           default_value = 1.0*default_geometry[0], 
-                                           default_limits = default_limits)
-        self.pixel_spacing_y = OptionValue(tag = G.OPTION_TAG_DICT['pixel_spacing_y'], 
-                                           default_value = 1.0*default_geometry[1], 
-                                           default_limits = default_limits)
-        self.slice_thickness = OptionValue(tag = G.OPTION_TAG_DICT['slice_thickness'], 
-                                           default_value = 1.0*default_geometry[2], 
-                                           default_limits = default_limits)
-
-
-    def reset_geometry(self):
-        self.pixel_spacing_x.reset()
-        self.pixel_spacing_y.reset()
-        self.slice_thickness.reset()
-        
-
-    def update_geometry(self):
-        self.pixel_spacing_x.update_values(dpg.get_value(self.pixel_spacing_x.tag))
-        self.pixel_spacing_y.update_values(dpg.get_value(self.pixel_spacing_y.tag))
-        self.slice_thickness.update_values(dpg.get_value(self.slice_thickness.tag))
-
-    
-    def get_pixel_steps(self):
-        return [self.slice_thickness.current_value, self.pixel_spacing_y.current_value, self.pixel_spacing_x.current_value]
-
-
-    def __repr__(self):
-        return f'Volume Geometry: \n\tPixel Spacing  : ({self.pixel_spacing_x}, {self.pixel_spacing_y})\n\tSlice Thickness: {self.slice_thickness}'
-
-
-    def __call__(self):
-        return [self.slice_thickness.current_value, self.pixel_spacing_y.current_value, self.pixel_spacing_x.current_value]
-    
-
-    def _cleanup_(self):
-        attrib_list = list(self.__dict__.keys())
-        while len(attrib_list) > 0:
-            attrib_name = attrib_list.pop()
-            try:
-                getattr(self, attrib_name)._cleanup_()
-            except:
-                pass
-            setattr(self, attrib_name, None)
-            delattr(self, attrib_name)
-
-
 class CameraInfo(object):
     def __init__(self, 
                  tag = 'Camera',
@@ -238,16 +181,6 @@ class CameraInfo(object):
                  default_norm = 0.0):
         
         pass
-
-class AffineMatrix(object):
-    def __init__(self, 
-                 default_origin: list[float] = [0.0, 0.0, 0.0],
-                 default_angle: list[float] = [0.0, 0.0, 0.0],
-                 default_scale: list[float] = [1.0, 1.0, 1.0]):
-        
-        self.affine_matrix = np.eye(4, 4, dtype=np.float32)
-        self.affine_matrix[:,3] = np.array(default_origin)
-        self.affine_matrix[[0, 1, 2], [0, 1, 2]] *= np.array(default_scale)
 
 class OrientationInfo(object):
     def __init__(self, 
@@ -283,20 +216,32 @@ class OrientationInfo(object):
         self.quaternion = QuaternionValue(tag = 'quaternion', default_quaternion = 1.0*default_quaternion)
         self.global_quaternion = QuaternionValue(tag = 'quaternion', default_quaternion = 1.0*default_quaternion)
         self.origin_vector = VectorValue(tag = 'origin_vector', default_vector = 1.0*cp.array([[0.0], [0.0], [0.0]]))
-        self.scaled_origin_vector = VectorValue(tag = 'scaled_origin_vector', default_vector = 1.0*cp.array([[0.0], [0.0], [0.0]]))
         self.norm_vector = VectorValue(tag='norm_vector', default_vector = 1.0*cp.array([[0.0], [0.0], [default_norm_sign]])) # Start by looking along Z axis, Axial View.
-        self.viewport_origin_vector = VectorValue(tag = 'viewport_origin', default_vector = 1.0*cp.array([[0.0], [0.0], [0.0]]))
         self.pixel_spacing_x = OptionValue(tag = G.OPTION_TAG_DICT['pixel_spacing_x'], default_value = 1.0*default_geometry[0], default_limits = default_limits_geometry, default_step = 0.1)
         self.pixel_spacing_y = OptionValue(tag = G.OPTION_TAG_DICT['pixel_spacing_y'], default_value = 1.0*default_geometry[1], default_limits = default_limits_geometry, default_step = 0.1)
         self.slice_thickness = OptionValue(tag = G.OPTION_TAG_DICT['slice_thickness'], default_value = 1.0*default_geometry[2], default_limits = default_limits_geometry, default_step = 0.1)
         self.geometry_vector = VectorValue(tag = 'geometry_vector', default_vector = cp.array([[1.0*default_geometry[0]], [1.0*default_geometry[1]], [1.0*default_geometry[2]]]))
+        
         self.drawlayer = StringValue(default_string = default_drawlayer_tags[0])
         self.drawlayer_ortho = StringValue(default_string = default_drawlayer_tags[1])
+        
         self.affine = AffineValue(tag = f'{tag}_Affine', default_value = cp.eye(4, dtype = cp.float32))
-        self.view_plane = ViewPlane(tag = f'{tag}|ViewPlane', texture_dim = default_texture_dim, texture_center = default_texture_center, 
-                                    z_dim = 2, voxel_start = voxel_start, voxel_steps = voxel_steps, voxel_center = voxel_center, affine = self.affine.current_value)
-        self.view_plane_ortho = ViewPlane(tag = f'{tag}|ViewPlaneOrtho', texture_dim = default_texture_dim, texture_center = default_texture_center, 
-                                          z_dim = 1, voxel_start = voxel_start, voxel_steps = voxel_steps, voxel_center = voxel_center, affine = self.affine.current_value)
+        self.view_plane = ViewPlane(tag = f'{tag}|ViewPlane', 
+                                    texture_dim = default_texture_dim, 
+                                    texture_center = default_texture_center, 
+                                    z_dim = 2, 
+                                    voxel_start = voxel_start, 
+                                    voxel_steps = voxel_steps, 
+                                    voxel_center = voxel_center, 
+                                    affine = self.affine.current_value)
+        self.view_plane_ortho = ViewPlane(tag = f'{tag}|ViewPlaneOrtho', 
+                                          texture_dim = default_texture_dim, 
+                                          texture_center = default_texture_center, 
+                                          z_dim = 1, 
+                                          voxel_start = voxel_start, 
+                                          voxel_steps = voxel_steps, 
+                                          voxel_center = voxel_center, 
+                                          affine = self.affine.current_value)
 
 
     def get_volume_coords(self, 
@@ -375,38 +320,53 @@ class OrientationInfo(object):
                                 origin_z = origin_z)
                 self.set_origin_vector()
 
-                self.set_norm_vector()
+                self.set_affine(self.origin_vector, 
+                                self.geometry_vector,
+                                self.quaternion)
 
-                self.affine.update_values(self.origin_vector.current_value.squeeze(),
-                                      1.0/self.geometry_vector.current_value.squeeze(),
-                                      self.quaternion)
+                self.set_norm_vector(self.affine)
+                
+                self.set_view_plane(self.affine)
 
-                self.view_plane.update_values(self.affine.current_value @ self.view_plane.default_value)
-                self.view_plane_ortho.update_values(self.affine.current_value @ self.view_plane_ortho.default_value)
+                self.update_vol_basis_text(self.affine)
 
-                self.update_vol_basis_text()
+                if drawlayer_tags == None:
+                    drawlayer_tags = self.get_drawlayer_tags()
+                self.update_drawlayers(drawlayer_tags)
+
+                self.update_vol_basis_text(self.affine)
+
+            return
+    
+    def set_affine(self,
+                   origin_vector: "VectorValue",
+                   geometry_vector: "VectorValue",
+                   quaternion: "QuaternionValue") -> None:
+        
+        """
+        Computes the affine using the inverse of the geometry vector. 
+
+        """
+        
+        self.affine.update_values(origin_vector.current_value.squeeze(),
+                                  1.0/geometry_vector.current_value.squeeze(),
+                                  quaternion)
+        
 
     def update_orientation(self, 
-                           pitch:float = None, 
-                           yaw:float = None, 
-                           roll:float = None, 
-                           norm:float = None, 
+                           pitch:float = None,
+                           yaw:float = None,
+                           roll:float = None,
+                           norm:float = None,
                            quaternion = None,
                            origin_x:float = None,
-                           origin_y:float = None, 
+                           origin_y:float = None,
                            origin_z:float = None,
-                           pixel_spacing_x:float = None, 
-                           pixel_spacing_y:float = None, 
+                           pixel_spacing_x:float = None,
+                           pixel_spacing_y:float = None,
                            slice_thickness:float = None,
                            drawlayer_tags:list[str] = None):
-        with dpg.mutex():
-            # Update geometry first, then apply to all other vectors.  
-            # Reset View Plane Zoom. 
-            # self.view_plane.update_values(self.view_plane.current_value 
-            #                               * self.geometry_vector.current_value)
-            # self.view_plane_ortho.update_values(self.view_plane_ortho.current_value 
-            #                                     * self.geometry_vector.current_value)
-            
+        with dpg.mutex():            
             self.set_pitch_yaw_roll(pitch = pitch, 
                                     yaw = yaw,
                                     roll = roll)
@@ -422,48 +382,31 @@ class OrientationInfo(object):
                             origin_y = origin_y,
                             origin_z = origin_z)
             
-            # Update vectors and view plane
-            self.update_norm_vector()
-            # self.update_viewport_origin_vector()
-            
             self.set_origin_vector()
-            # self.update_view_plane()
 
-            # Set Zoom Plane and origin values zoom.
-            # self.view_plane.update_values(self.view_plane.current_value 
-            #                               / self.geometry_vector.current_value)
-            # self.view_plane_ortho.update_values(self.view_plane_ortho.current_value 
-            #                                     / self.geometry_vector.current_value)
+            self.set_affine(self.origin_vector,
+                            self.geometry_vector,
+                            self.quaternion)
             
-            # # We reset scaling here so that the origin_x, origin_y, and origin_z 
-            # values reflect correct the OptionsPanel values. 
-            # self.origin_x.set_current_value(self.origin_x.current_value 
-            #                                 / self.geometry_vector.current_value.reshape((3, )).get()[1])
-            # self.origin_y.set_current_value(self.origin_y.current_value 
-            #                                 / self.geometry_vector.current_value.reshape((3, )).get()[0])
-            # self.origin_z.set_current_value(self.origin_z.current_value 
-            #                                 / self.geometry_vector.current_value.reshape((3, )).get()[2])
+            self.set_view_plane(self.affine)
             
-            self.affine.update_values(self.origin_vector.current_value.squeeze(),
-                                      1.0/self.geometry_vector.current_value.squeeze(),
-                                      self.quaternion)
-
-            self.view_plane.update_values(self.affine.current_value @ self.view_plane.default_value)
-            self.view_plane_ortho.update_values(self.affine.current_value @ self.view_plane_ortho.default_value)
+            self.set_norm_vector(affine=self.affine)
 
             if drawlayer_tags == None:
                 drawlayer_tags = self.get_drawlayer_tags()
+
             self.update_drawlayers(drawlayer_tags)
 
-            self.update_vol_basis_text()
+            self.update_vol_basis_text(self.affine)
 
-    def update_vol_basis_text(self):
+    def update_vol_basis_text(self,
+                              affine: "AffineValue"):
         # self.volume_basis = np.round(self.quaternion.difference_value.rotate(self.volume_basis, axis = 0) , decimals = 6) + 0.0
         vol_basis_text = ''
         print(f'update_orientation')
         print(f'\tVolume Basis:')
         index = 0
-        for vector in self.affine.current_value:
+        for vector in affine.current_value:
             values = (np.round(vector, decimals = 3) + 0.0).tolist()
             text = f'({values[0]:.3f}, {values[1]:.3f}, {values[2]:.3f}, {values[3]:.3f})'
             vol_basis_text = f'{vol_basis_text}{text}'
@@ -485,13 +428,10 @@ class OrientationInfo(object):
             self.origin_y.reset()
             self.origin_z.reset()
             self.origin_vector.reset()
-            self.viewport_origin_vector.reset()
-            self.affine.update_values(self.origin_vector.current_value.squeeze(), 1.0/self.geometry_vector.current_value.squeeze(), self.quaternion)
-            self.view_plane.update_values(self.affine.current_value @ self.view_plane.default_value)
-            self.view_plane_ortho.update_values(self.affine.current_value @ self.view_plane_ortho.default_value)
-            # self.view_plane.update_values(self.view_plane.current_value - self.scaled_origin_vector.current_value)
-            # self.view_plane_ortho.update_values(self.view_plane_ortho.current_value - self.scaled_origin_vector.current_value)
-            # self.scaled_origin_vector.reset()
+            self.set_affine(self.origin_vector, 
+                            self.geometry_vector, 
+                            self.quaternion)
+            self.set_view_plane(self.affine)
             self.norm_vector.reset()
 
 
@@ -503,29 +443,11 @@ class OrientationInfo(object):
             
             self.quaternion.reset()
             self.global_quaternion.reset()
-            self.affine.update_values(self.origin_vector.current_value.squeeze(),1.0/self.geometry_vector.current_value.squeeze(), self.quaternion)
-            self.view_plane.update_values(self.affine.current_value @ self.view_plane.default_value)
-            self.view_plane_ortho.update_values(self.affine.current_value @ self.view_plane_ortho.default_value)
 
-            # self.view_plane.update_values(qtn_rotate(self.quaternion.current_value.inverse,
-            #                                          self.view_plane.current_value - self.scaled_origin_vector.current_value, 
-            #                                          axis = 0)
-            #                                     + self.scaled_origin_vector.current_value,
-            #                                     decimals = 4)
-            # self.view_plane_ortho.update_values(qtn_rotate(self.quaternion.current_value.inverse,
-            #                                                self.view_plane_ortho.current_value - self.scaled_origin_vector.current_value, 
-            #                                                axis = 0)
-            #                                             + self.scaled_origin_vector.current_value,
-            #                                             decimals = 4)
-            # self.norm_vector.update_values(qtn_rotate(self.quaternion.current_value.inverse,
-            #                                           self.norm_vector.current_value,
-            #                                           axis = 0),
-            #                                         decimals=4)
-            
-            # self.volume_basis = np.round(self.quaternion.current_value.inverse.rotate(self.volume_basis, axis = 0), decimals = 3) + 0.0
-            
-            # self.quaternion.reset()
-            # self.global_quaternion.reset()
+            self.set_affine(self.origin_vector, 
+                            self.geometry_vector, 
+                            self.quaternion)
+            self.set_view_plane(self.affine)
 
 
     def reset_geometry(self):
@@ -534,12 +456,11 @@ class OrientationInfo(object):
             self.pixel_spacing_y.reset()
             self.slice_thickness.reset()
             self.geometry_vector.reset()
-            self.affine.update_values(self.origin_vector.current_value.squeeze(),1.0/self.geometry_vector.current_value.squeeze(), self.quaternion)
-            self.view_plane.update_values(self.affine.current_value @ self.view_plane.default_value)
-            self.view_plane_ortho.update_values(self.affine.current_value @ self.view_plane_ortho.default_value)
 
-            # self.scaled_origin_vector.update_values(self.origin_vector.current_value)
-            # self.geometry_vector.reset()
+            self.set_affine(self.origin_vector, 
+                            self.geometry_vector, 
+                            self.quaternion)
+            self.set_view_plane(self.affine)
 
 
     def reset_orientation(self):
@@ -557,9 +478,7 @@ class OrientationInfo(object):
             self.origin_z.reset()
             self.quaternion.reset()
             self.global_quaternion.reset()
-            self.viewport_origin_vector.reset()
             self.origin_vector.reset()
-            self.scaled_origin_vector.reset()
             self.norm_vector.reset()
             self.view_plane.reset()
             self.view_plane_ortho.reset()
@@ -631,8 +550,7 @@ class OrientationInfo(object):
         
         self.global_quaternion.update_values(roll_qtn * pitch_rtn * yaw_rtn * self.global_quaternion.default_value)
         rotate_qtn = qtn.array([1.0, 0.0, 0.0, 0.0])
-        for angle_index, angle_tag in enumerate(['yaw', 'pitch', 'roll']):
-            angle: QuaternionValue = getattr(self, angle_tag)
+        for angle_index, angle in enumerate([self.yaw, self.pitch, self.roll]):
             temp_qtn = qtn.array([1.0, 0.0, 0.0, 0.0])
             if angle.difference_value != 0:
                 angle_rad = np.deg2rad(angle.difference_value)
@@ -700,24 +618,6 @@ class OrientationInfo(object):
     def set_origin_vector(self, apply_scaling = False):
         """
         
-        Increments origin_vector by applying the appropriate rotations and translations: 
-
-            V_O_c + Q_C( Q_D( [N_delta, -1.0*O_y_delta, O_x_delta] ) )
-
-        where:
-            V_O_c is        origin_vector.current_value
-            N_delta is      norm.difference_value
-            O_y_delta is    origin_y.difference_value
-            O_x_delta is    origin_x.difference_value
-            Q_C is          quaternion.current_value
-            Q_D is          quaternion.default_value
-
-        We use this version because we want to know which direction we need to step in for our origin, 
-        given the Slice Location slider, Origin X slider, and Origin Y slider. 
-
-        First we rotate the difference in the origin components by the default rotation. 
-        Then we rotate that by the current quaternion.
-        Then we add that to the current origin vector. 
         """
         
         self.origin_vector.update_values(
@@ -727,135 +627,19 @@ class OrientationInfo(object):
                                       dtype = cp.float32),
                                     decimals = 4
                                     )
+
+
+    def set_norm_vector(self,
+                        affine: "AffineValue"):
+        self.norm_vector.update_values((affine.get_rotation_matrix() @ self.norm_vector.default_value.squeeze()).reshape((3, 1)))
+        self.norm_vector.set_step_value((affine.get_inverse_scaled_rotation() @ self.norm_vector.default_value.squeeze()).reshape((3, 1)))
+
+
+    def set_view_plane(self,
+                       affine: "AffineValue"):
         
-        self.scaled_origin_vector.update_values(
-                            cp.array([[-1.0*self.origin_y.current_value * self.pixel_spacing_y.current_value],
-                                      [self.origin_x.current_value * self.pixel_spacing_x.current_value],
-                                      [self.origin_z.current_value * self.slice_thickness.current_value]],
-                                      dtype = cp.float32),
-                                    decimals = 4
-                                    )
-        
-
-    def set_norm_vector(self):
-        self.norm_vector.update_values(
-            qtn_rotate(self.quaternion.current_value,
-                       self.norm_vector.current_value, 
-                       axis = 0), 
-                       decimals = 6)
-        
-
-    def update_norm_vector(self):
-        self.norm_vector.update_values(
-            qtn_rotate(self.quaternion.difference_value,
-                       self.norm_vector.current_value, 
-                       axis = 0), 
-                       decimals = 6)
-
-
-    def update_viewport_origin_vector(self,
-                                      scale_vector:np.ndarray|cp.ndarray = np.ones((3, 1)),
-                                      apply_scaling:bool = False):
-
-        self.viewport_origin_vector.update_values(
-            self.viewport_origin_vector.current_value + 
-            qtn_rotate(self.quaternion.current_value,
-                    cp.array([[-1.0*self.origin_y.difference_value], 
-                              [1.0*self.origin_x.difference_value], 
-                              [0]]),
-                axis = 0), 
-                decimals = 6
-            )
-
-    def set_view_plane(self):
-        if G.GPU_MODE:
-            print('OptionValue set_view_plane: Center of View Plane Init')
-            print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
-
-            self.view_plane.update_values(self.view_plane.default_value - self.scaled_origin_vector.current_value)
-            print('OptionValue set_view_plane: Center of View Plane Post Shift')
-            print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
-
-            self.view_plane.update_values(
-                qtn_rotate(self.quaternion.current_value,
-                           self.view_plane.current_value, axis = 0 )
-                           )
-            print('OptionValue set_view_plane: Center of View Plane Post Rotation')
-            print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
-
-            self.view_plane.update_values(self.view_plane.current_value + self.scaled_origin_vector.current_value + self.scaled_origin_vector.current_value)
-            print('OptionValue set_view_plane: Center of View Plane Post Reshift')
-            print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
-
-            self.view_plane.update_values(self.view_plane.current_value / self.geometry_vector.current_value)
-            print('OptionValue set_view_plane: Center of View Plane Post Scale')
-            print(f'\t{self.view_plane.get_coords(self.view_plane.texture_center, self.view_plane.texture_center)}')
-            
-            
-            self.view_plane_ortho.update_values(
-                ((qtn_rotate(self.quaternion.current_value,
-                             self.view_plane_ortho.default_value
-                             - self.origin_vector.current_value, axis = 0)
-                        + self.origin_vector.current_value
-                        + self.origin_vector.current_value)
-                    / self.geometry_vector.current_value), 
-                        decimals = 4)
-            
-        else:
-            print('GPU required!')
-            return
-    
-    def update_view_plane(self):
-        """
-        The math for this goes: 
-            (diff_qtn.rotate(view_plane.current_value 
-                             - origin_vector.current_value)
-            + origin_vector.current_value 
-            + origin_vector.difference_value 
-            + self.norm.difference_value*self.norm_vector.current_value)
-
-        Which moves the view plane to the origin, rotates it, then moves it back to center. 
-        Then we add the difference between our current step and the previous to move the origin.
-        Then we add the differnce in our norm to move our camera viewpoint. 
-        
-        It's convoluted because we control the orientation from the viewplane space, 
-        transform it into volume space, and then back into viewplane space
-
-        """
-        if G.GPU_MODE:
-            self.view_plane.update_values(
-                            qtn_rotate(self.quaternion.difference_value, 
-                                       self.view_plane.current_value, 
-                                       axis = 0)
-                            + self.scaled_origin_vector.difference_value, 
-                        decimals = 4)
-            
-            self.view_plane_ortho.update_values(
-                            qtn_rotate(self.quaternion.difference_value, 
-                                       self.view_plane_ortho.current_value, 
-                                       axis = 0)
-                            + self.scaled_origin_vector.difference_value, 
-                        decimals = 4)
-            
-            # self.view_plane.update_values(
-            #     (qtn_rotate(self.quaternion.difference_value,
-            #                 self.view_plane.current_value
-            #                 - self.scaled_origin_vector.current_value, axis = 0)
-            #             + self.scaled_origin_vector.current_value
-            #             + self.scaled_origin_vector.difference_value), 
-            #             decimals = 4)
-            
-            # self.view_plane_ortho.update_values(
-            #     (qtn_rotate(self.quaternion.difference_value,
-            #                 self.view_plane_ortho.current_value
-            #                 - self.scaled_origin_vector.current_value, axis = 0)
-            #             + self.scaled_origin_vector.current_value
-            #             + self.scaled_origin_vector.difference_value), 
-            #             decimals = 4)
-            
-        else:
-            print('GPU required!')
-            return
+        self.view_plane.update_values(affine.current_value @ self.view_plane.default_value)
+        self.view_plane_ortho.update_values(affine.current_value @ self.view_plane_ortho.default_value)
     
     
     def _cleanup_(self):
@@ -891,12 +675,6 @@ class OrientationInfo(object):
         print(f'{self.origin_vector.pretty_print(modifier = "current_value") = }')
         print(f'{self.origin_vector.pretty_print(modifier = "previous_value") = }')
         print(f'{self.origin_vector.pretty_print(modifier = "difference_value") = }')
-        print(f'{self.scaled_origin_vector.pretty_print(modifier = "current_value") = }')
-        print(f'{self.scaled_origin_vector.pretty_print(modifier = "previous_value") = }')
-        print(f'{self.scaled_origin_vector.pretty_print(modifier = "difference_value") = }')
-        print(f'{self.viewport_origin_vector.pretty_print(modifier = "current_value") = }')
-        print(f'{self.viewport_origin_vector.pretty_print(modifier = "previous_value") = }')
-        print(f'{self.viewport_origin_vector.pretty_print(modifier = "difference_value") = }')
         print(f'{self.norm_vector.pretty_print(modifier = "current_value") = }')
         print(f'{self.norm_vector.pretty_print(modifier = "previous_value") = }')
         print(f'{self.norm_vector.pretty_print(modifier = "difference_value") = }')
@@ -1007,6 +785,48 @@ class HistogramInfo(object):
             setattr(self, attrib_name, None)
             delattr(self, attrib_name)
 
+
+class BoolValue(object):
+    def __init__(self, tag = '', default_bool:bool = False):
+
+        self.tag = tag
+        self.default_value:str = default_bool
+        self.current_value:str = default_bool
+        self.difference_value:str = default_bool
+        self.previous_value:str = default_bool
+
+    def __repr__(self):
+        return f'{self.current_value}'
+
+    def __call__(self):
+        return f'{self.current_value}'
+        
+    def set_previous_value(self):
+        self.previous_value = self.current_value
+    
+    def set_current_value(self, new_current):
+        self.current_value = new_current
+        
+    def update_values(self, new_current):
+        self.set_previous_value()
+        self.set_current_value(new_current)
+        
+    def reset(self):
+        self.set_current_value(self.default_value)
+        self.set_previous_value()
+
+    def set_info(self, info_dict: dict):
+        self.__dict__ = dict(info_dict)
+        
+    def get_info(self) -> dict:
+        return dict(self.__dict__)
+
+    def _cleanup_(self):
+        attrib_list = list(self.__dict__.keys())
+        while len(attrib_list) > 0:
+            attrib_key = attrib_list.pop()
+            setattr(self, attrib_key, None)
+            delattr(self, attrib_key)
 
 class StringValue(object):
     def __init__(self, tag = '', default_string:str = 'Default'):
@@ -1301,7 +1121,7 @@ class VectorValue(object):
         self.set_current_value(1.0*self.default_value)
         self.set_previous_value()
         self.set_difference_value()
-        self.set_accumulated_value(0.0 * self.default_value)
+        self.set_accumulated_value(0.0*self.default_value)
 
     def set_info(self, info_dict: dict):
         self.__dict__ = dict(info_dict)
@@ -1406,6 +1226,8 @@ class OptionValue(object):
             setattr(self, attrib_key, None)
             delattr(self, attrib_key)
 
+
+
 class AffineValue(object):
     def __init__(self,
                  tag:str = '',
@@ -1416,7 +1238,7 @@ class AffineValue(object):
                  self.previous_value: cp.ndarray = 1.0*default_value
                  self.difference_value: cp.ndarray = 1.0*default_value
                  self.default_value: cp.ndarray = 1.0*default_value
-                 self.matrices: cp.ndarray = cp.array([cp.eye(4, dtype = cp.float32)]*4)
+                 self.matrices: cp.ndarray = cp.array([cp.eye(4, dtype = cp.float32)]*5) # 5 matrices
 
     def set_rotation(self, rotation_matrix):
         self.matrices[1][:3, :3] = 1.0*rotation_matrix[:, :]
@@ -1444,17 +1266,20 @@ class AffineValue(object):
         Returns:
             A 4x4 NumPy array representing the affine transformation.
         """
-        # R = cp.eye(4)
-        # R[:3, :3] = cp.array(quaternion.current_value.to_rotation_matrix)
+        # Rotation
         self.matrices[1][:3, :3] = 1.0*cp.array(quaternion.current_value.to_rotation_matrix)
 
-        # S = cp.eye(4)
+        # Scaling
         self.matrices[2][0, 0] = 1.0*scaling[0]
         self.matrices[2][1, 1] = 1.0*scaling[1]
         self.matrices[2][2, 2] = 1.0*scaling[2]
 
-        # T = cp.eye(4)
-        # T[:3, 3] = 1.0*translation
+        # Inverse Scaling
+        self.matrices[4][0, 0] = 1.0/scaling[0]
+        self.matrices[4][1, 1] = 1.0/scaling[1]
+        self.matrices[4][2, 2] = 1.0/scaling[2]
+
+        # Translation
         self.matrices[3][:3, 3] = 1.0 * translation
         self.matrices[0] = self.matrices[3] @ self.matrices[2] @ self.matrices[1]
         self.set_current_value(self.matrices[0])
@@ -1465,14 +1290,27 @@ class AffineValue(object):
                           new_current_value: cp.ndarray):
         self.current_value[:] = new_current_value[:]
 
-    def get_rotation_matrix(self):
-        return self.matrices[0]
+    def set_previous_value(self, 
+                       new_previous_value: cp.ndarray):
+        self.previous_value[:] = new_previous_value[:]
+
+    def set_difference_value(self):
+        self.difference_value[:] = self.current_value[:] - self.previous_value[:]
+
+    def get_rotation_matrix(self) -> cp.ndarray:
+        return self.matrices[1, :3, :3]
     
-    def get_scaling(self):
-        return cp.diag(self.matrices[1])
+    def get_scaling(self) -> cp.ndarray:
+        return self.matrices[2, :3, :3]
     
-    def get_translation(self):
-        return self.matrices[2, :3, 3]
+    def get_translation(self) -> cp.ndarray:
+        return self.matrices[3, :3, 3]
+    
+    def get_scaled_rotation(self) -> cp.ndarray:
+        return self.matrices[2, :3, :3] @ self.matrices[1, :3, :3]
+    
+    def get_inverse_scaled_rotation(self) -> cp.ndarray:
+        return self.matrices[4, :3, :3] @ self.matrices[1, :3, :3]
 
 
 class ViewPlane(object):

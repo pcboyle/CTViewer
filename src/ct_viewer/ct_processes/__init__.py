@@ -21,17 +21,17 @@ class CTViewer:
         print('Initialized')
         G.APP = self
 
-        self.DrawWindow:NewMainView.MainView = NewMainView.MainView()
-        self.VolumeLayerGroups:VolumeLayer.VolumeLayerGroups = VolumeLayer.VolumeLayerGroups()
-        self.VolumeLayerGroups.add_group(group_name = 'AllVolumes')
-        window_types = ['view_plane', 'view_plane_ortho']
-
         self.texture_registry = dpg.add_texture_registry(tag = G.TEX_REG_TAG) # 'main_texture_registry'
         self.colormap_registry = dpg.add_colormap_registry(tag = G.COLORMAP_TAG)
         self.value_registry = dpg.add_value_registry(tag = G.VALUE_REG_TAG)
         self.handler_registry = dpg.add_handler_registry(tag = G.HANDLER_REG_TAG)
         self.item_handler_registry = dpg.add_item_handler_registry(tag = G.ITEM_HANDLER_REG_TAG)
         self.item_hovered_registry = dpg.add_item_handler_registry(tag = 'item_hovered_registry')
+
+        self.DrawWindow:NewMainView.MainView = NewMainView.MainView(self.value_registry)
+        self.VolumeLayerGroups:VolumeLayer.VolumeLayerGroups = VolumeLayer.VolumeLayerGroups()
+        self.VolumeLayerGroups.add_group(group_name = 'AllVolumes')
+        window_types = ['view_plane', 'view_plane_ortho']
 
         self.Themes = Themes.Themes()
         self.Themes.register_colormaps(G.COLORMAP_DICT,
@@ -73,7 +73,7 @@ class CTViewer:
                             with dpg.group(tag = 'OptionsPanel_ImageTools_Group'):
                                 self.OptionsPanel = OptionsPanel.OptionsPanel(debug = False)
                                 self.OptionsPanel.create_options_panel()
-                                self.ImageTools = ImageTools.ImageTools(self.VolumeLayerGroups)
+                                self.ImageTools = ImageTools.ImageTools(self.VolumeLayerGroups, self.value_registry)
 
                 with dpg.child_window(tag = 'MainViewTexture_Window',
                                       width = G.CONFIG_DICT['app_settings']['tab_pane_width'], #G.MAIN_TAB_VIEW_WINDOW_DEFAULTS['WINDOW_WIDTH'],
