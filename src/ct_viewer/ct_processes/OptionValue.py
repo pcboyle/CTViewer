@@ -354,16 +354,16 @@ class OrientationInfo(object):
         
 
     def update_orientation(self, 
-                           pitch:float = None, 
-                           yaw:float = None, 
-                           roll:float = None, 
-                           norm:float = None, 
+                           pitch:float = None,
+                           yaw:float = None,
+                           roll:float = None,
+                           norm:float = None,
                            quaternion = None,
                            origin_x:float = None,
-                           origin_y:float = None, 
+                           origin_y:float = None,
                            origin_z:float = None,
-                           pixel_spacing_x:float = None, 
-                           pixel_spacing_y:float = None, 
+                           pixel_spacing_x:float = None,
+                           pixel_spacing_y:float = None,
                            slice_thickness:float = None,
                            drawlayer_tags:list[str] = None):
         with dpg.mutex():            
@@ -632,6 +632,7 @@ class OrientationInfo(object):
     def set_norm_vector(self,
                         affine: "AffineValue"):
         self.norm_vector.update_values((affine.get_rotation_matrix() @ self.norm_vector.default_value.squeeze()).reshape((3, 1)))
+        self.norm_vector.set_step_value((affine.get_inverse_scaled_rotation() @ self.norm_vector.default_value.squeeze()).reshape((3, 1)))
 
 
     def set_view_plane(self,
@@ -1237,7 +1238,7 @@ class AffineValue(object):
                  self.previous_value: cp.ndarray = 1.0*default_value
                  self.difference_value: cp.ndarray = 1.0*default_value
                  self.default_value: cp.ndarray = 1.0*default_value
-                 self.matrices: cp.ndarray = cp.array([cp.eye(4, dtype = cp.float32)]*4)
+                 self.matrices: cp.ndarray = cp.array([cp.eye(4, dtype = cp.float32)]*5) # 5 matrices
 
     def set_rotation(self, rotation_matrix):
         self.matrices[1][:3, :3] = 1.0*rotation_matrix[:, :]
@@ -1273,6 +1274,11 @@ class AffineValue(object):
         self.matrices[2][1, 1] = 1.0*scaling[1]
         self.matrices[2][2, 2] = 1.0*scaling[2]
 
+        # Inverse Scaling
+        self.matrices[4][0, 0] = 1.0/scaling[0]
+        self.matrices[4][1, 1] = 1.0/scaling[1]
+        self.matrices[4][2, 2] = 1.0/scaling[2]
+
         # Translation
         self.matrices[3][:3, 3] = 1.0 * translation
         self.matrices[0] = self.matrices[3] @ self.matrices[2] @ self.matrices[1]
@@ -1299,6 +1305,12 @@ class AffineValue(object):
     
     def get_translation(self) -> cp.ndarray:
         return self.matrices[3, :3, 3]
+    
+    def get_scaled_rotation(self) -> cp.ndarray:
+        return self.matrices[2, :3, :3] @ self.matrices[1, :3, :3]
+    
+    def get_inverse_scaled_rotation(self) -> cp.ndarray:
+        return self.matrices[4, :3, :3] @ self.matrices[1, :3, :3]
 
 
 class ViewPlane(object):

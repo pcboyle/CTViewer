@@ -718,6 +718,7 @@ class VolumeLayer(object):
                 self.get_orientation().norm_vector.current_value,
                 self.get_orientation().view_plane.get_voxel_view(),
                 self.CTVolume,
+                norm_vector_scale_1 = self.get_orientation().norm_vector.step_value,
                 rescaled = colormap_rescaled,
                 start = operation_instance.start,
                 stop = operation_instance.stop,
