@@ -1465,7 +1465,8 @@ class DataLoader(object):
             OptionsPanel.enable_options()
             dpg.set_item_label(G.VOLUME_TAB_TAG, f'Volume Tab: {VolumeLayerGroups.get_current_volume().name}')
             
-            OptionsPanel.update_volume('FileDialog', None, None)
+            OptionsPanel.update_volume('FileDialog', 'Set', None)
+            # OptionsPanel.update_volume('FileDialog', 'Update', None)
             VolumeLayerGroups.update_histogram('volume')
             VolumeLayerGroups.update_histogram('texture')
 

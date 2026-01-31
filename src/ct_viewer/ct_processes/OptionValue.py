@@ -300,6 +300,9 @@ class OrientationInfo(object):
                         
             with dpg.mutex():
                 if isinstance(quaternion, qtn.array):
+                    self.set_pitch_yaw_roll(pitch = pitch, 
+                                            yaw = yaw,
+                                            roll = roll)
                     self.set_quaternion(quaternion = quaternion * self.quaternion.default_value)
 
                 else:
@@ -328,7 +331,7 @@ class OrientationInfo(object):
                 
                 self.set_view_plane(self.affine)
 
-                self.update_vol_basis_text(self.affine)
+                # self.update_vol_basis_text(self.affine)
 
                 if drawlayer_tags == None:
                     drawlayer_tags = self.get_drawlayer_tags()
@@ -392,12 +395,15 @@ class OrientationInfo(object):
             
             self.set_norm_vector(affine=self.affine)
 
+            self.update_vol_basis_text(self.affine)
+
             if drawlayer_tags == None:
                 drawlayer_tags = self.get_drawlayer_tags()
 
             self.update_drawlayers(drawlayer_tags)
 
             self.update_vol_basis_text(self.affine)
+
 
     def update_vol_basis_text(self,
                               affine: "AffineValue"):
@@ -479,6 +485,7 @@ class OrientationInfo(object):
             self.quaternion.reset()
             self.global_quaternion.reset()
             self.origin_vector.reset()
+            self.affine.reset()
             self.norm_vector.reset()
             self.view_plane.reset()
             self.view_plane_ortho.reset()
@@ -633,6 +640,7 @@ class OrientationInfo(object):
                         affine: "AffineValue"):
         self.norm_vector.update_values((affine.get_rotation_matrix() @ self.norm_vector.default_value.squeeze()).reshape((3, 1)))
         self.norm_vector.set_step_value((affine.get_inverse_scaled_rotation() @ self.norm_vector.default_value.squeeze()).reshape((3, 1)))
+        print(f'{self.norm_vector.step_value = }')
 
 
     def set_view_plane(self,
@@ -1310,7 +1318,13 @@ class AffineValue(object):
         return self.matrices[2, :3, :3] @ self.matrices[1, :3, :3]
     
     def get_inverse_scaled_rotation(self) -> cp.ndarray:
-        return self.matrices[4, :3, :3] @ self.matrices[1, :3, :3]
+        return self.matrices[2, :3, :3] @ self.matrices[1, :3, :3]
+    
+    def reset(self):
+        self.current_value[:] = 1.0*self.default_value[:]
+        self.previous_value[:] = 1.0*self.default_value[:]
+        self.difference_value[:] = 0.0*self.default_value[:]
+        self.matrices[:] = cp.array([cp.eye(4, dtype = cp.float32)]*5)
 
 
 class ViewPlane(object):

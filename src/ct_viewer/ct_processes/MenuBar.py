@@ -191,8 +191,8 @@ class MenuBar:
             for landmark_info in loaded_landmarks: 
                 print(f'\t{landmark_info = }')
                 self.InformationBox.add_landmark(*landmark_info)
-
-            self.OptionsPanel.update_volume('load_landmarks', 'Update', None)
+            self.OptionsPanel.update_volume('load_landmarks', 'Set', None)
+            # self.OptionsPanel.update_volume('load_landmarks', 'Update', None)
 
 
     def open_analysis_window(self):

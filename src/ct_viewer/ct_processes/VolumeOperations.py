@@ -48,7 +48,7 @@ class VolumeOperations(object):
         
     def format_interpolation_slab(self,
                                   norm_vector: np.ndarray | cp.ndarray, # (3, 1)
-                                  norm_vector_scale: float,
+                                  norm_vector_scale: np.ndarray | cp.ndarray, # (3, 1)
                                   volume_view_plane: np.ndarray | cp.ndarray, # (3, N) Points
                                   start: int,
                                   stop: int) -> cp.ndarray:
@@ -71,17 +71,17 @@ class VolumeOperations(object):
     def interpolate_volume(self, 
                            ctvolume, 
                            steps,
-                           view_slab, 
+                           interpolation_slab, 
                            rescaled = False,
                            order = 1) -> cp.ndarray:
         """
-        
-        Returns interpolated result of shape (view_slab[0], texture_dim, texture_dim)
+
+        Returns interpolated result of shape (interpolation_slab[0], texture_dim, texture_dim)
 
         """
         self.volume_slab.fill(cp.nan)
         
-        self.volume_slab[:steps] = ctvolume.interpolate_volume(self.interpolation_slab[:, :steps], rescale = float(rescaled), order = order)
+        self.volume_slab[:steps] = ctvolume.interpolate_volume(interpolation_slab[:, :steps], rescale = float(rescaled), order = order)
 
     def get_operation_volume(self, 
                              ctvolume, 
@@ -155,18 +155,16 @@ class VolumeOperations(object):
                                            self.get_operation_volume(ctvolume_2, norm_vector_2, norm_vector_scale_2, view_plane_2, 0, 0, rescaled = rescaled, order = order))
         
         if operation == 'Mean':
-            self.volume_mean(self.volume_slab[:steps])
+            self.volume_mean(self.volume_slab[:steps], self.texture_content)
 
         if operation == 'Max':
-            self.volume_max(self.volume_slab[:steps])
+            self.volume_max(self.volume_slab[:steps], self.texture_content)
 
         if operation == 'Min':
-            self.volume_min(self.volume_slab[:steps])
+            self.volume_min(self.volume_slab[:steps], self.texture_content)
 
         if operation == 'Standard Deviation':
-            self.volume_std_dev(self.volume_slab[:steps])
-
-        
+            self.volume_std_dev(self.volume_slab[:steps], self.texture_content)
         
 
     def add_volumes(self, volume_1, volume_2) -> cp.ndarray:
@@ -179,29 +177,33 @@ class VolumeOperations(object):
         return volume_1 - volume_2
 
     def volume_mean(self, 
-                    volume, 
+                    volume,
+                    texture_content, 
                     # start, 
                     # end, 
                     axis = 2) -> cp.ndarray:
-        self.texture_content = cp.mean(volume, axis = 0)
+        texture_content[:] = cp.mean(volume, axis = 0)
 
     def volume_min(self, 
                    volume,
+                   texture_content, 
                 #    start, 
                 #    end, 
                    axis = 2) -> cp.ndarray:
-        self.texture_content = cp.min(volume, axis = 0)
+        texture_content[:] = cp.min(volume, axis = 0)
 
     def volume_max(self, 
-                    volume, 
+                   volume, 
+                   texture_content, 
                     # start, 
                     # end, 
                     axis = 2) -> cp.ndarray:
-        self.texture_content = cp.max(volume, axis = 0)
+        texture_content[:] = cp.max(volume, axis = 0)
 
     def volume_std_dev(self, 
-                    volume, 
+                       volume, 
+                       texture_content, 
                     # start, 
                     # end, 
                     axis = 2) -> cp.ndarray:
-        self.texture_content = cp.std(volume, axis = 0)
+        texture_content[:] = cp.std(volume, axis = 0)

@@ -280,8 +280,9 @@ class ImageTools:
 
 
     def update_operation(self):
-        self.options_panel.update_volume(None, None, False)
-        # self.VolumeLayerGroups.update_operation(self.get_operation_info())
+        self.options_panel.update_volume(None, 'Set', False)
+        # self.options_panel.update_volume(None, 'Update', False)
+        self.VolumeLayerGroups.update_operation(self.get_operation_info())
 
 
     def update_selector_lists(self, volume_names: list[str]):

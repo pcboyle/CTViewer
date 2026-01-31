@@ -325,16 +325,16 @@ class InformationBox(object):
 
 
     def add_landmark(self, 
-                     volume_name, 
-                     landmark_index,
-                     landmark_affine,
-                     landmark_hu,
+                     volume_name: str, 
+                     landmark_index: int,
+                     landmark_affine: np.ndarray,
+                     landmark_hu: np.ndarray,
                     #  landmark_coords,
                     #  landmark_geometry,
                     #  landmark_quaternion,
-                     landmark_id,
-                     landmark_patch_id,
-                     landmark_patch,
+                     landmark_id: str,
+                     landmark_patch_id: str,
+                     landmark_patch: str,
                      texture_registry = 'main_texture_registry'):
         
         print('InformationBox Message: add_landmark')
@@ -460,7 +460,7 @@ class InformationBox(object):
         if self.VolumeLayerGroups.active:
             _, row_child = app_data
             affine, landmark_hu = dpg.get_item_user_data(dpg.get_item_parent(row_child))
-            rotation, scaling, translation = affine[1:]
+            rotation, scaling, translation = affine[1:4]
             location = translation[:3, 3]
             geometry = np.diag(scaling)
             quaternion = qtn.array.from_rotation_matrix(rotation)
@@ -483,16 +483,21 @@ class InformationBox(object):
             dpg.set_value('slice_thickness_input_current_value', slice_thickness)
 
             # quaternion = qtn.array(quaternion)
-            print(f'Rotation Matrix: \n\t{quaternion.to_rotation_matrix}')
-            print(f'Spherical      : \n\t{quaternion.to_spherical_coordinates}')
-            print(f'Scalar, Vector : \n\t{quaternion.scalar}, {quaternion.vector}')
-            print(f'Align          : \n\t{qtn.align(np.array([[0.0, 0.0, -1.0]]), quaternion.rotate(np.array([[0.0, 0.0, -1.0]]), axis = -1))}')
-            yaw, pitch, roll = np.rad2deg(quaternion.to_axis_angle)
+            # print(f'Rotation Matrix: \n\t{quaternion.to_rotation_matrix}')
+            # print(f'Spherical      : \n\t{quaternion.to_spherical_coordinates}')
+            # print(f'Scalar, Vector : \n\t{quaternion.scalar}, {quaternion.vector}')
+            # print(f'Align          : \n\t{qtn.align(np.array([[0.0, 0.0, -1.0]]), quaternion.rotate(np.array([[0.0, 0.0, -1.0]]), axis = -1))}')
+            angles = np.rad2deg(quaternion.to_axis_angle) # yaw, pitch, roll
+            for i, angle in enumerate(angles):
+                if angle < -180.0:
+                    angles[i] = angle + 360.0
+                elif angle > 180.0:
+                    angles[i] = angle - 360.0
             dpg.set_item_user_data('OptionPanel_quaternion_display', quaternion)
 
-            dpg.set_value('yaw_slider_current_value', np.round(yaw, decimals = 4) + 0.0)
-            dpg.set_value('pitch_slider_current_value', np.round(pitch, decimals = 4) + 0.0)
-            dpg.set_value('roll_slider_current_value', np.round(roll, decimals = 4) + 0.0)
+            dpg.set_value('yaw_slider_current_value', np.round(angles[0], decimals = 4) + 0.0)
+            dpg.set_value('pitch_slider_current_value', np.round(angles[1], decimals = 4) + 0.0)
+            dpg.set_value('roll_slider_current_value', np.round(angles[2], decimals = 4) + 0.0)
 
             self.OptionsPanel.update_volume('InformationBox.landmark_double_clicked', 'Set', None)
 

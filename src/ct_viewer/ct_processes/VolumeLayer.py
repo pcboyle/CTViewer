@@ -309,6 +309,19 @@ class VolumeLayer(object):
         patches = []
         patch_widths = []
 
+        current_orientation_info = {'origin_x': self.get_orientation().origin_x.current_value,
+                            'origin_y': self.get_orientation().origin_y.current_value, 
+                            'origin_z': self.get_orientation().origin_z.current_value,
+                            'norm': self.get_orientation().norm.current_value,
+                            'pitch': self.get_orientation().pitch.current_value,
+                            'yaw': self.get_orientation().yaw.current_value,
+                            'roll': self.get_orientation().roll.current_value,
+                            'pixel_spacing_x': self.get_orientation().pixel_spacing_x.current_value,
+                            'pixel_spacing_y': self.get_orientation().pixel_spacing_y.current_value,
+                            'slice_thickness': self.get_orientation().slice_thickness.current_value,
+                            'quaternion': self.get_orientation().quaternion.current_value,
+                            'drawlayer_tags': self.get_orientation().drawlayer.current_value}
+
         orientation_info = {'origin_x': 0.0,
                             'origin_y': 0.0, 
                             'origin_z': 0.0,
@@ -323,14 +336,19 @@ class VolumeLayer(object):
         
         for landmark_index in range(loaded_landmark_data['image_coords'].shape[0]):
             quaternion = qtn.array(loaded_landmark_data['quaternions'][landmark_index])
-            yaw, pitch, roll = quaternion.to_axis_angle
+            angles = np.rad2deg(quaternion.to_axis_angle) # yaw, pitch, roll
+            for i, angle in enumerate(angles):
+                if angle < -180.0:
+                    angles[i] = angle + 360.0
+                elif angle > 180.0:
+                    angles[i] = angle - 360.0
             orientation_info['origin_x'] = loaded_landmark_data['image_coords'][landmark_index, 1].item()
             orientation_info['origin_y'] = -1.0*loaded_landmark_data['image_coords'][landmark_index, 0].item()
             orientation_info['origin_z'] = loaded_landmark_data['image_coords'][landmark_index, 2].item()
             orientation_info['norm'] = 0.0
-            orientation_info['pitch'] = pitch.item()
-            orientation_info['yaw'] = yaw.item()
-            orientation_info['roll'] = roll.item()
+            orientation_info['pitch'] = angles[1]
+            orientation_info['yaw'] = angles[0]
+            orientation_info['roll'] = angles[2]
             orientation_info['quaternion'] = quaternion
             orientation_info['pixel_spacing_x'] = loaded_landmark_data['geometries'][landmark_index, 1].item()
             orientation_info['pixel_spacing_y'] = loaded_landmark_data['geometries'][landmark_index, 0].item()
@@ -339,8 +357,8 @@ class VolumeLayer(object):
             
 
             # print(f'\tget_landmark_patches(): Updating Orientation')
-            self.reset_orientation()
-            self.update_orientation(orientation_info, update_type = 'Update')
+            # self.reset_orientation()
+            self.update_orientation(orientation_info, update_type = 'Set')
 
             # print(f'\tget_landmark_patches(): Updating Texture')
             self.update_texture(volume_operations, 
@@ -362,7 +380,9 @@ class VolumeLayer(object):
                                                   colorize = True))
             patch_widths.append(patch_width)
         
-        self.reset_orientation()
+        self.update_orientation(current_orientation_info, update_type = 'Set')
+        self.update_texture(volume_operations, 
+                            loading_landmarks = True)
         return patches, patch_widths
     
 
