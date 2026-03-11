@@ -257,6 +257,7 @@ class CTVolume(object):
             self.trans_coords_min_max[dim, 1] = max_coord - 1
             self.trans_coord_grid_list.append(list(range(min_coord, max_coord)))
 
+
     def rescale_volume(self, rescale_bool: bool = False):
         if rescale_bool:
             self.volume -= self.volume_min
@@ -269,6 +270,9 @@ class CTVolume(object):
         Coords are in the shape of: 
 
             [3, xdim, ydim, zdim]
+
+        Output is in the shape of:
+            [xdim, ydim, zdim]
 
         """
         
